@@ -75,7 +75,10 @@ export class PostgresVehicleEventStore implements VehicleEventStore {
       [actorId, event.kind, event.idempotencyKey, event.motorcycleId, event.category,
         event.description, event.amountCop, occurredAt, fingerprint],
     );
-    if (inserted) return { status: 'created', eventId: inserted.id };
+    if (inserted) {
+      await client.query('INSERT INTO notification_outbox(event_id) VALUES ($1)', [inserted.id]);
+      return { status: 'created', eventId: inserted.id };
+    }
 
     // A separate READ COMMITTED statement sees the winner of a concurrent insert.
     const { rows: [previous] } = await client.query<{ id: string; request_hash: string }>(

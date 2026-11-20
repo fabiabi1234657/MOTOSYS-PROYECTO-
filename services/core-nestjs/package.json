@@ -3,6 +3,21 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --experimental-strip-types --test test/domain.test.ts"
+    "test": "node --experimental-strip-types --test test/domain.test.ts test/oidc.test.mjs"
+  },
+  "dependencies": {
+    "@nestjs/common": "11.2.11",
+    "@nestjs/core": "11.2.11",
+    "@nestjs/platform-express": "11.2.11",
+    "amqplib": "0.10.9",
+    "argon2": "0.44.0",
+    "openid-client": "6.8.1",
+    "opossum": "9.0.0",
+    "otplib": "12.0.1",
+    "pg": "8.16.3",
+    "redis": "5.9.0",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2",
+    "zod": "4.6.7"
   }
 }

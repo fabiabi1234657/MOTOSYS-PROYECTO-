@@ -58,3 +58,4 @@ infra/backups/*.sql
 .DS_Store
 Thumbs.db
 *.log
+docs/fases-1b-2.md

@@ -1,0 +1,53 @@
+name: motosys-apps
+services:
+  core-nestjs:
+    build: ../services/core-nestjs
+    mem_limit: 256m
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Define DATABASE_URL}
+      REDIS_URL: ${REDIS_URL:?Define REDIS_URL}
+      TOTP_ENCRYPTION_KEY: ${TOTP_ENCRYPTION_KEY:?Define TOTP_ENCRYPTION_KEY}
+      PASSWORD_DENYLIST: ${PASSWORD_DENYLIST:-}
+      NOTIFICATIONS_URL: ${NOTIFICATIONS_URL:-}
+      NOTIFICATIONS_TOKEN: ${NOTIFICATIONS_TOKEN:-}
+      RABBITMQ_URL: ${RABBITMQ_URL:-}
+      OIDC_PUBLIC_ORIGIN: ${OIDC_PUBLIC_ORIGIN:-}
+      GOOGLE_OIDC_ISSUER: ${GOOGLE_OIDC_ISSUER:-}
+      GOOGLE_OIDC_CLIENT_ID: ${GOOGLE_OIDC_CLIENT_ID:-}
+      GOOGLE_OIDC_CLIENT_SECRET: ${GOOGLE_OIDC_CLIENT_SECRET:-}
+      MICROSOFT_OIDC_ISSUER: ${MICROSOFT_OIDC_ISSUER:-}
+      MICROSOFT_OIDC_CLIENT_ID: ${MICROSOFT_OIDC_CLIENT_ID:-}
+      MICROSOFT_OIDC_CLIENT_SECRET: ${MICROSOFT_OIDC_CLIENT_SECRET:-}
+      DEV_OIDC_ISSUER: ${DEV_OIDC_ISSUER:-}
+      DEV_OIDC_CLIENT_ID: ${DEV_OIDC_CLIENT_ID:-}
+      DEV_OIDC_CLIENT_SECRET: ${DEV_OIDC_CLIENT_SECRET:-}
+    ports:
+      - "127.0.0.1:${CORE_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  rabbitmq:
+    image: rabbitmq:3.13-alpine
+    hostname: motosys-rabbitmq
+    profiles: [notifications]
+    mem_limit: 256m
+    environment:
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: '+S 2:2'
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-motosys}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-}
+    volumes:
+      - rabbitmq:/var/lib/rabbitmq
+      - ./rabbitmq.conf:/etc/rabbitmq/conf.d/50-motosys.conf:ro
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 12
+volumes:
+  rabbitmq:
+networks:
+  default:
+    external: true
+    name: motosys_net
