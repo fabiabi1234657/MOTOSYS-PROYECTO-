@@ -8,7 +8,11 @@ Proyecto integrador de **Programación Avanzada** y **Arquitectura de Software**
 
 ---
 
-## Arquitectura Resumen (Optimizada para 8 GB de RAM)
+## Estado de implementación
+
+Los cinco motores, el núcleo NestJS y RabbitMQ se probaron localmente. El inicio federado se probó con un proveedor simulado. La tabla y el árbol siguientes describen la arquitectura objetivo.
+
+## Arquitectura objetivo para equipos de 8 GB
 
 | Capa | Tecnología | Rol / Arquitectura |
 | :--- | :--- | :--- |
@@ -58,3 +62,8 @@ MOTOSYS-PROYECTO-/
    - Crear etiqueta `git tag v1.0.0 && git push origin v1.0.0`.
    - Adjuntar el archivo `motosys-v1.0.0.apk` en **GitHub Releases** bajo `v1.0.0`.
    - Subir a Moodle exactamente esa misma versión (ZIP, PDF + editable del informe, APK y enlace + commit/tag).
+
+
+Consulta [la verificación de datos y núcleo HTTP](docs/fases-1b-2.md) para el arranque del servicio, las variables y las pruebas de estas fases.
+
+Consulta [el cierre del núcleo y el servicio Java](docs/fases-2b-3.md) para las fases 2B y 3.

@@ -1,0 +1,42 @@
+server:
+  port: 3001
+  shutdown: graceful
+spring:
+  application:
+    name: notify-java
+  lifecycle:
+    timeout-per-shutdown-phase: 10s
+  datasource:
+    url: ${JDBC_URL}
+    username: ${JDBC_USER}
+    password: ${JDBC_PASSWORD}
+    hikari:
+      maximum-pool-size: 4
+      connection-timeout: 3000
+  data:
+    redis:
+      url: ${REDIS_URL}
+      timeout: 3s
+    mongodb:
+      uri: ${MONGO_URL}
+      auto-index-creation: true
+  rabbitmq:
+    addresses: ${RABBITMQ_URL}
+    listener:
+      simple:
+        prefetch: 4
+        default-requeue-rejected: true
+  servlet:
+    multipart:
+      max-file-size: 2MB
+      max-request-size: 3MB
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  health:
+    rabbit:
+      enabled: false
+motosys:
+  service-token: ${NOTIFICATIONS_TOKEN}

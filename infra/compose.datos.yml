@@ -11,6 +11,7 @@ services:
     volumes:
       - postgres:/var/lib/postgresql/data
       - ./init/postgres.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./init/core-auth.sql:/docker-entrypoint-initdb.d/02-core-auth.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U motosys -d motosys"]
       interval: 10s
@@ -49,8 +50,9 @@ services:
     image: cassandra:4.1.6
     mem_limit: 640m
     environment:
-      MAX_HEAP_SIZE: 320M
-      HEAP_NEWSIZE: 96M
+      MAX_HEAP_SIZE: 256M
+      HEAP_NEWSIZE: 64M
+      JVM_EXTRA_OPTS: -XX:ActiveProcessorCount=2
       CASSANDRA_CLUSTER_NAME: MotoSys
     volumes:
       - cassandra:/var/lib/cassandra
@@ -63,7 +65,7 @@ services:
       retries: 12
   clickhouse:
     image: clickhouse/clickhouse-server:24.8-alpine
-    mem_limit: 384m
+    mem_limit: 640m
     environment:
       CLICKHOUSE_DB: motosys
       CLICKHOUSE_USER: motosys
