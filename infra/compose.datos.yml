@@ -1,0 +1,90 @@
+name: motosys-datos
+services:
+  postgres:
+    image: postgres:16.4-alpine
+    mem_limit: 192m
+    command: ["postgres", "-c", "shared_buffers=32MB", "-c", "max_connections=40"]
+    environment:
+      POSTGRES_DB: motosys
+      POSTGRES_USER: motosys
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+      - ./init/postgres.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U motosys -d motosys"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+  mongo:
+    image: mongo:7.0.14
+    mem_limit: 320m
+    command: ["mongod", "--wiredTigerCacheSizeGB", "0.25"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: motosys
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?Define MONGO_PASSWORD}
+      MONGO_INITDB_DATABASE: motosys
+    volumes:
+      - mongo:/data/db
+      - ./init/mongo.js:/docker-entrypoint-initdb.d/01-indexes.js:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ping:1}).ok'"]
+      interval: 20s
+      timeout: 10s
+      retries: 12
+  redis:
+    image: redis:7.4.1-alpine
+    mem_limit: 96m
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?Define REDIS_PASSWORD}
+    command: ["sh", "-ec", "exec redis-server --maxmemory 64mb --maxmemory-policy noeviction --appendonly yes --requirepass \"$$REDISCLI_AUTH\""]
+    volumes:
+      - redis:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -qx PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+  cassandra:
+    image: cassandra:4.1.6
+    mem_limit: 640m
+    environment:
+      MAX_HEAP_SIZE: 320M
+      HEAP_NEWSIZE: 96M
+      CASSANDRA_CLUSTER_NAME: MotoSys
+    volumes:
+      - cassandra:/var/lib/cassandra
+      - ./init/cassandra.cql:/opt/motosys/schema.cql:ro
+    healthcheck:
+      test: ["CMD", "cqlsh", "-e", "SELECT release_version FROM system.local"]
+      start_period: 120s
+      interval: 30s
+      timeout: 15s
+      retries: 12
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8-alpine
+    mem_limit: 384m
+    environment:
+      CLICKHOUSE_DB: motosys
+      CLICKHOUSE_USER: motosys
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?Define CLICKHOUSE_PASSWORD}
+    volumes:
+      - clickhouse:/var/lib/clickhouse
+      - ./init/clickhouse.xml:/etc/clickhouse-server/config.d/memory.xml:ro
+      - ./init/clickhouse.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "-T", "8", "http://127.0.0.1:8123/ping"]
+      start_period: 60s
+      interval: 15s
+      timeout: 20s
+      retries: 12
+volumes:
+  postgres:
+  mongo:
+  redis:
+  cassandra:
+  clickhouse:
+networks:
+  default:
+    external: true
+    name: motosys_net

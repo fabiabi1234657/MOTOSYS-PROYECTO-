@@ -1,0 +1,60 @@
+# Entornos y secretos (NUNCA subir a GitHub)
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+
+# Node.js / TypeScript / NestJS / React / Expo
+node_modules/
+dist/
+build/
+.expo/
+.expo-shared/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+coverage/
+.turbo/
+
+# Java / Maven / Spring Boot
+target/
+*.jar
+*.war
+*.ear
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# Python / FastAPI / ML
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Android / APK (los APK se publican en GitHub Releases bajo tag v1.0.0)
+*.apk
+*.aab
+android/app/build/
+.gradle/
+
+# Docker / Volúmenes locales / Dumps
+infra/data/
+infra/backups/*.tar.gz
+infra/backups/*.sql
+*.dump
+
+# IDE y Sistema Operativo
+.vscode/
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+*.log
