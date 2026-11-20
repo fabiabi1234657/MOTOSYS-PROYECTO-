@@ -131,3 +131,31 @@ class CoreHTTP(unittest.TestCase):
         self.assertEqual(status, 201, session)
         self.assertEqual(self.call("/admin/cache-metrics", token=session["accessToken"])[0], 200)
         self.assertEqual(self.call("/auth/login", dict(login, totp=code))[0], 401)
+        if os.getenv("MOTO_TEST_CROSS_STORE"):
+            for _ in range(15):
+                status, audit = self.call("/admin/audit", token=session["accessToken"])
+                if status == 200 and any(row["actorId"] == account["id"] and row["action"] == "ADMIN_LOGIN" for row in audit):
+                    break
+                time.sleep(1)
+            else:
+                self.fail("No se encontró la auditoría de acceso administrativo.")
+            admin = session["accessToken"]
+            status, workshop = self.call("/workshops", {"name": "MotoSys test", "documentId": suffix}, admin)
+            self.assertEqual(status, 201, workshop)
+            workshop_id = workshop["id"]
+            self.addCleanup(self.sql, f"DELETE FROM workshops WHERE id='{workshop_id}';")
+            self.addCleanup(self.sql, f"DELETE FROM workshop_products WHERE workshop_id='{workshop_id}';")
+            products = f"/workshops/{workshop_id}/products"
+            self.assertEqual(self.call(products, {"sku": " filter-02 ", "name": "Filtro"}, admin)[0], 201)
+            self.assertEqual(self.call(products, {"sku": "FILTER-02", "name": "Filtro duplicado"}, admin)[0], 409)
+            status, motorcycle = self.call("/motorcycles",
+                                           {"plate": suffix, "make": "Moto", "model": "Test",
+                                            "workshopId": workshop_id}, admin)
+            self.assertEqual(status, 201, motorcycle)
+            moto_id = motorcycle["id"]
+            self.addCleanup(self.sql, f"DELETE FROM motorcycles WHERE id='{moto_id}';")
+            self.addCleanup(self.sql, f"DELETE FROM service_invoices WHERE workshop_id='{workshop_id}';")
+            invoices = f"/workshops/{workshop_id}/invoices"
+            invoice = {"motorcycleId": moto_id, "series": " test ", "invoiceNumber": 1, "amountCop": 50000}
+            self.assertEqual(self.call(invoices, invoice, admin)[0], 201)
+            self.assertEqual(self.call(invoices, dict(invoice, series="TEST"), admin)[0], 409)

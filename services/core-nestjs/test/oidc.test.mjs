@@ -3,12 +3,13 @@ import { createHash, generateKeyPairSync, randomBytes, sign } from 'node:crypto'
 import test from 'node:test';
 import { oidcHandlers } from '../src/oidc.mjs';
 
-test('OIDC valida firma, nonce, PKCE y vinculación local', async t => {
+for (const provider of ['dev', 'google', 'microsoft']) {
+test('OIDC valida firma, nonce, PKCE y vinculación local para ' + provider, async t => {
   const issuer = 'https://issuer.example.invalid';
   const origin = 'https://motosys.example.invalid';
   const values = {
-    DEV_OIDC_ISSUER: issuer, DEV_OIDC_CLIENT_ID: 'motosys-test',
-    DEV_OIDC_CLIENT_SECRET: 'fixture-secret', OIDC_PUBLIC_ORIGIN: origin,
+    [provider.toUpperCase() + '_OIDC_ISSUER']: issuer, [provider.toUpperCase() + '_OIDC_CLIENT_ID']: 'motosys-test',
+    [provider.toUpperCase() + '_OIDC_CLIENT_SECRET']: 'fixture-secret', OIDC_PUBLIC_ORIGIN: origin,
   };
   for (const [key, value] of Object.entries(values)) {
     const previous = process.env[key];
@@ -39,12 +40,12 @@ test('OIDC valida firma, nonce, PKCE y vinculación local', async t => {
     assert.equal(url.pathname, '/token');
     const params = new URLSearchParams(options.body);
     assert.equal(params.get('code'), 'fixture-code');
-    assert.equal(params.get('redirect_uri'), origin + '/auth/oidc/dev/callback');
+    assert.equal(params.get('redirect_uri'), origin + '/auth/oidc/' + provider + '/callback');
     const challenge = createHash('sha256').update(params.get('code_verifier')).digest('base64url');
     assert.equal(challenge, redirect.searchParams.get('code_challenge'));
     const now = Math.floor(Date.now() / 1000);
     const jwt = encode({ alg: 'RS256', kid: 'test' }) + '.' + encode({
-      iss: issuer, sub: 'linked-subject', aud: values.DEV_OIDC_CLIENT_ID,
+      iss: issuer, sub: 'linked-subject', aud: 'motosys-test',
       iat: now, exp: now + 60, nonce: redirect.searchParams.get('nonce'), role: 'SUPER_ADMIN',
     });
     const signature = sign('RSA-SHA256', Buffer.from(corrupt ? jwt + 'corrupt' : jwt), privateKey);
@@ -70,14 +71,15 @@ test('OIDC valida firma, nonce, PKCE y vinculación local', async t => {
     randomToken: () => randomBytes(32).toString('base64url'),
     sha: value => createHash('sha256').update(value).digest('hex'),
   });
-  const callback = () => handlers.callback('dev', {
+  const callback = () => handlers.callback(provider, {
     browser, query: { state: redirect.searchParams.get('state'), code: 'fixture-code' },
   }, res);
-  await handlers.start('dev', res);
+  await handlers.start(provider, res);
   assert.deepEqual(await callback(), { role: 'RIDER', client: 'web' });
   await assert.rejects(callback, { status: 401 });
 
   corrupt = true;
-  await handlers.start('dev', res);
+  await handlers.start(provider, res);
   await assert.rejects(callback, { status: 401 });
 });
+}

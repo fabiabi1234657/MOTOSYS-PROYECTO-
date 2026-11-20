@@ -8,7 +8,14 @@ services:
       REDIS_URL: ${REDIS_URL:?Define REDIS_URL}
       TOTP_ENCRYPTION_KEY: ${TOTP_ENCRYPTION_KEY:?Define TOTP_ENCRYPTION_KEY}
       PASSWORD_DENYLIST: ${PASSWORD_DENYLIST:-}
-      NOTIFICATIONS_URL: ${NOTIFICATIONS_URL:-}
+      NOTIFICATIONS_URL: ${NOTIFICATIONS_URL:-http://notify-java:3001/internal/notifications/events}
+      CASSANDRA_HOST: ${CASSANDRA_HOST:-cassandra}
+      CASSANDRA_DC: ${CASSANDRA_DC:-datacenter1}
+      CLICKHOUSE_URL: ${CLICKHOUSE_URL:-http://clickhouse:8123}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
+      SMTP_URL: ${SMTP_URL:-}
+      RESET_PUBLIC_URL: ${RESET_PUBLIC_URL:-}
+      RESET_FROM: ${RESET_FROM:-}
       NOTIFICATIONS_TOKEN: ${NOTIFICATIONS_TOKEN:-}
       RABBITMQ_URL: ${RABBITMQ_URL:-}
       OIDC_PUBLIC_ORIGIN: ${OIDC_PUBLIC_ORIGIN:-}
@@ -28,6 +35,29 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+  notify-java:
+    build: ../services/notify-java
+    profiles: [notifications]
+    mem_limit: 320m
+    environment:
+      JDBC_URL: ${JDBC_URL:-jdbc:postgresql://postgres:5432/motosys}
+      JDBC_USER: ${JDBC_USER:-motosys}
+      JDBC_PASSWORD: ${POSTGRES_PASSWORD:-}
+      MONGO_URL: ${MONGO_URL:-}
+      REDIS_URL: ${REDIS_URL:?Define REDIS_URL}
+      RABBITMQ_URL: ${RABBITMQ_URL:-}
+      NOTIFICATIONS_TOKEN: ${NOTIFICATIONS_TOKEN:-}
+    ports:
+      - "127.0.0.1:${NOTIFY_PORT:-3001}:3001"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3001/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 12
   rabbitmq:
     image: rabbitmq:3.13-alpine
     hostname: motosys-rabbitmq

@@ -77,6 +77,11 @@ export class PostgresVehicleEventStore implements VehicleEventStore {
     );
     if (inserted) {
       await client.query('INSERT INTO notification_outbox(event_id) VALUES ($1)', [inserted.id]);
+      await client.query(`INSERT INTO projection_outbox(id,kind,payload)
+        SELECT gen_random_uuid(),'analytics',jsonb_build_object(
+          'event_id',e.id,'motorcycle_id',m.id,'owner_id',m.owner_id,'workshop_id',m.workshop_id,
+          'make',m.make,'kind',e.kind,'category',e.category,'amount_cop',e.amount_cop,'occurred_at',e.occurred_at)
+        FROM vehicle_events e JOIN motorcycles m ON m.id=e.motorcycle_id WHERE e.id=$1`, [inserted.id]);
       return { status: 'created', eventId: inserted.id };
     }
 

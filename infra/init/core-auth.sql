@@ -15,3 +15,14 @@ CREATE TABLE IF NOT EXISTS notification_outbox (
 
 CREATE INDEX IF NOT EXISTS notification_outbox_pending
 ON notification_outbox(queued_at) WHERE delivered_at IS NULL;
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS session_version integer NOT NULL DEFAULT 0;
+CREATE TABLE IF NOT EXISTS projection_outbox (
+  id uuid PRIMARY KEY,
+  kind text NOT NULL CHECK (kind IN ('odometer','audit','analytics')),
+  payload jsonb NOT NULL,
+  next_attempt timestamptz NOT NULL DEFAULT now(),
+  delivered_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS projection_outbox_pending
+ON projection_outbox(next_attempt) WHERE delivered_at IS NULL;

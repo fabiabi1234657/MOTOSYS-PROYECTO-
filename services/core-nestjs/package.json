@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --experimental-strip-types --test test/domain.test.ts test/oidc.test.mjs"
+    "test": "node --experimental-strip-types --test test/domain.test.ts test/oidc.test.mjs test/tco.test.mjs test/password-reset.test.mjs"
   },
   "dependencies": {
     "@nestjs/common": "11.2.11",
@@ -11,6 +11,8 @@
     "@nestjs/platform-express": "11.2.11",
     "amqplib": "0.10.9",
     "argon2": "0.44.0",
+    "cassandra-driver": "4.10.0",
+    "nodemailer": "10.6.1",
     "openid-client": "6.8.1",
     "opossum": "9.0.0",
     "otplib": "12.0.1",

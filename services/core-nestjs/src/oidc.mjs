@@ -71,7 +71,7 @@ export function oidcHandlers({ redis, db, failure, cookie, matched, createSessio
         throw failure(401, 'Identidad federada inválida.');
       }
       const { rows: [row] } = await db.query(
-        `SELECT u.id, u.role, u.workshop_id, u.totp_secret
+        `SELECT u.id, u.role, u.workshop_id, u.totp_secret, u.session_version
          FROM oidc_identities i JOIN users u ON u.id=i.user_id
          WHERE i.issuer=$1 AND i.subject=$2`, [claims.iss, claims.sub],
       );
@@ -92,7 +92,7 @@ export function oidcHandlers({ redis, db, failure, cookie, matched, createSessio
       const userId = await redis.getDel(key);
       if (!userId) throw failure(401, 'Sesión OIDC caducada.');
       const { rows: [row] } = await db.query(
-        'SELECT id, role, workshop_id, totp_secret FROM users WHERE id=$1', [userId],
+        'SELECT id, role, workshop_id, totp_secret, session_version FROM users WHERE id=$1', [userId],
       );
       if (!row) throw failure(401, 'Sesión OIDC caducada.');
       await verifyMfa(row, code);

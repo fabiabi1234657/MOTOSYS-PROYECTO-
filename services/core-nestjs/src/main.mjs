@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import {
-  Controller, Get, Post, Body, Req, Res, Module, HttpException,
+  Controller, Get, Post, Patch, Delete, Body, Req, Res, Module, HttpException,
 } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import pg from 'pg';
@@ -12,6 +12,11 @@ import { z } from 'zod';
 import { decryptTotpSecret } from './totp-secret.mjs';
 import { oidcHandlers } from './oidc.mjs';
 import { startNotifications } from './notifications.mjs';
+import { startProjections } from './projections.mjs';
+import { catalogHandlers, enqueue } from './catalog.mjs';
+import { passwordResetHandlers } from './password-reset.mjs';
+import { TcoPool, tcoInput } from './tco-pool.mjs';
+import { openapi } from './openapi.mjs';
 import { PasswordPolicy } from './domain/password-policy.ts';
 import { canAccessMotorcycle } from './domain/access.ts';
 import { RegisterVehicleEvent } from './application/use-cases/register-vehicle-event.ts';
@@ -24,6 +29,8 @@ const redis = createClient({ url: REDIS_URL, disableOfflineQueue: true });
 redis.on('error', () => process.stderr.write('Redis no disponible.\n'));
 await redis.connect();
 const stopNotifications = startNotifications(db);
+const projections = startProjections(db);
+const tco = new TcoPool();
 const registerEvent = new RegisterVehicleEvent(new PostgresVehicleEventStore(db));
 const denylist = new Set(['password123456789', '123456789012345', 'qwertyuiopasdfgh',
   ...(process.env.PASSWORD_DENYLIST ?? '').split(',').filter(Boolean).map(value => value.normalize('NFC').toLowerCase())]);
@@ -71,15 +78,23 @@ async function authenticate(req) {
   if (remaining <= 0 || !await redis.pExpire(key, Math.min(remaining, 1800000))) {
     throw failure(401, 'Sesión caducada.');
   }
-  const { rows: [row] } = await db.query('SELECT id, role, workshop_id FROM users WHERE id=$1', [session.userId]);
-  if (!row || (row.role !== 'RIDER' && !session.mfa)) throw failure(401, 'Sesión caducada.');
+  const { rows: [row] } = await db.query('SELECT id, role, workshop_id, session_version FROM users WHERE id=$1', [session.userId]);
+  if (!row || (session.version ?? 0) !== row.session_version || (row.role !== 'RIDER' && !session.mfa)) throw failure(401, 'Sesión caducada.');
+  if (row.role !== 'RIDER') {
+    await enqueue(db, 'audit', { actorId: row.id, action: 'ADMIN_ACCESS',
+      subjectId: req.route?.path ?? '/', outcome: 'AUTHENTICATED', recordedAt: new Date().toISOString() });
+  }
   return { account: asAccount(row), key };
 }
 
 async function createSession(row, client, res, mfa) {
+  if (row.role !== 'RIDER') {
+    await enqueue(db, 'audit', { actorId: row.id, action: 'ADMIN_LOGIN', subjectId: row.id,
+      outcome: 'AUTHENTICATED', recordedAt: new Date().toISOString() });
+  }
   const token = randomToken();
   await redis.set('session:' + sha(token), JSON.stringify({
-    userId: row.id, expiresAt: Date.now() + 28800000, mfa,
+    userId: row.id, expiresAt: Date.now() + 28800000, mfa, version: row.session_version,
   }), { PX: 1800000 });
   if (client === 'web') {
     const csrf = randomToken();
@@ -162,7 +177,23 @@ async function listEvents(motorcycleId) {
 
 const federated = oidcHandlers({ redis, db, failure, cookie, matched, createSession, verifyMfa, randomToken, sha });
 
+const catalog = catalogHandlers({ db, authenticate, validate, failure, auditReader: projections.auditReader });
+const recovery = passwordResetHandlers({ db, redis, policy, randomToken, sha, validate, failure, throttle,
+  hashPassword: password => argon2.hash(password, hashOptions) });
+
 class CoreController {
+  specification() { return openapi; }
+
+  async forecast(body, req) {
+    const { account } = await authenticate(req);
+    await throttle('tco', account.id, 20);
+    const { cases } = validate(tcoInput, body);
+    try {
+      return await tco.calculate(cases);
+    } catch {
+      throw failure(503, 'El cálculo de TCO no está disponible.');
+    }
+  }
   oidcStart(req, res) { return federated.start(req.params.provider, res); }
 
   oidcCallback(req, res) { return federated.callback(req.params.provider, req, res); }
@@ -199,7 +230,7 @@ class CoreController {
     await throttle('login-ip', req.ip, 30);
     await throttle('login-account', input.email, 8);
     const { rows: [row] } = await db.query(
-      'SELECT id, role, workshop_id, password_hash, totp_secret FROM users WHERE email=$1', [input.email],
+      'SELECT id, role, workshop_id, password_hash, totp_secret, session_version FROM users WHERE email=$1', [input.email],
     );
     const passwordOk = await argon2.verify(row?.password_hash ?? dummyHash, input.password.normalize('NFC'));
     if (!row?.password_hash || !passwordOk) throw failure(401, 'Credenciales inválidas.');
@@ -254,7 +285,29 @@ class CoreController {
   }
 }
 
+Object.assign(CoreController.prototype, catalog, {
+  requestPasswordReset: recovery.request,
+  confirmPasswordReset: recovery.confirm,
+});
+
 const routes = [
+  [Get('openapi.json'), 'specification', []],
+  [Post('auth/password-reset/request'), 'requestPasswordReset', [Body(), Req(), Res({ passthrough: true })]],
+  [Post('auth/password-reset/confirm'), 'confirmPasswordReset', [Body(), Req()]],
+  [Get('workshops'), 'listWorkshops', [Req()]],
+  [Post('workshops'), 'createWorkshop', [Body(), Req()]],
+  [Get('workshops/:workshopId/products'), 'listProducts', [Req()]],
+  [Post('workshops/:workshopId/products'), 'createProduct', [Body(), Req()]],
+  [Get('motorcycles'), 'listMotorcycles', [Req()]],
+  [Post('motorcycles'), 'createMotorcycle', [Body(), Req()]],
+  [Patch('motorcycles/:motorcycleId'), 'updateMotorcycle', [Body(), Req()]],
+  [Delete('motorcycles/:motorcycleId'), 'deleteMotorcycle', [Req()]],
+  [Patch('motorcycles/:motorcycleId/odometer'), 'updateOdometer', [Body(), Req()]],
+  [Get('workshops/:workshopId/invoices'), 'listInvoices', [Req()]],
+  [Post('workshops/:workshopId/invoices'), 'createInvoice', [Body(), Req()]],
+  [Patch('admin/users/:userId/role'), 'changeRole', [Body(), Req()]],
+  [Get('admin/audit'), 'audit', [Req()]],
+  [Post('analytics/tco'), 'forecast', [Body(), Req()]],
   [Get('health'), 'health', []],
   [Get('auth/oidc/:provider/start'), 'oidcStart', [Req(), Res()]],
   [Get('auth/oidc/:provider/callback'), 'oidcCallback', [Req(), Res({ passthrough: true })]],
@@ -278,7 +331,7 @@ await app.listen(Number(process.env.PORT ?? 3000), process.env.HOST ?? '127.0.0.
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.once(signal, async () => {
     await app.close();
-    await stopNotifications();
+    await Promise.all([stopNotifications(), projections.stop(), tco.close()]);
     await Promise.allSettled([db.end(), redis.quit()]);
   });
 }
