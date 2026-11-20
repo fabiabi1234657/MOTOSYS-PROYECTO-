@@ -2,7 +2,7 @@
 
 Proyecto integrador de **Programación Avanzada** y **Arquitectura de Software** (Ingeniería de Sistemas, Semestre 7 — Institución Universitaria del Putumayo, 2026-2).
 
-- **Autores**: Fabian Andrés Coral García · Jorge Arnulfo Montoya Manchola
+- **Autores**: Fabian Andrés Coral García 
 - **Repositorio oficial**: [https://github.com/fabiabi1234657/MOTOSYS-PROYECTO-](https://github.com/fabiabi1234657/MOTOSYS-PROYECTO-)
 - **Plan técnico completo**: [`docs/plan-arquitectura.md`](docs/plan-arquitectura.md)
 
