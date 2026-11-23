@@ -25,7 +25,7 @@ async function provider(name) {
 
 export function oidcHandlers({ redis, db, failure, cookie, matched, createSession, verifyMfa, randomToken, sha }) {
   return {
-    async start(name, res, ui = false, mobileChallenge) {
+    async start(name, res, ui = false, mobileChallenge = undefined) {
       const client = await provider(name);
       if (!client) throw failure(404, 'Proveedor OIDC no disponible.');
       const state = oidc.randomState();

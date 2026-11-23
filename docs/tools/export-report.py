@@ -84,8 +84,26 @@ styles = {
     "cell_heading": ParagraphStyle("CellHeading", fontName="Times-Bold", fontSize=9, leading=11),
 }
 
+WORD_STYLES = {
+    "title": "Title",
+    "heading": "Heading 1",
+    "subheading": "Heading 2",
+    "bullet": "List Bullet",
+}
 
-def export():
+
+def _remove_title_border(style):
+    properties = style.element.get_or_add_pPr()
+    for border in properties.findall(qn("w:pBdr")):
+        properties.remove(border)
+    border = OxmlElement("w:pBdr")
+    bottom = OxmlElement("w:bottom")
+    bottom.set(qn("w:val"), "nil")
+    border.append(bottom)
+    properties.append(border)
+
+
+def _create_word_document():
     document = Document()
     document.core_properties.title = "Informe final de MotoSys"
     document.core_properties.subject = "Proyecto final de Programación Avanzada 2026-2"
@@ -101,19 +119,102 @@ def export():
         style.font.name = "Times New Roman"
         style.font.color.rgb = RGBColor.from_string("000000")
         if name == "Title":
-            properties = style.element.get_or_add_pPr()
-            for border in properties.findall(qn("w:pBdr")):
-                properties.remove(border)
-            border = OxmlElement("w:pBdr")
-            bottom = OxmlElement("w:bottom")
-            bottom.set(qn("w:val"), "nil")
-            border.append(bottom)
-            properties.append(border)
+            _remove_title_border(style)
     footer = section.footer.paragraphs[0]
     footer.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     field = OxmlElement("w:fldSimple")
     field.set(qn("w:instr"), "PAGE")
     footer._p.append(field)
+    return document
+
+
+def _render_table(document, rows):
+    table = document.add_table(rows=0, cols=len(rows[0]))
+    table.style = "Light Shading Accent 1"
+    cells = []
+    for index, row in enumerate(rows):
+        current = table.add_row()
+        if not index:
+            current._tr.get_or_add_trPr().append(OxmlElement("w:tblHeader"))
+        current._tr.get_or_add_trPr().append(OxmlElement("w:cantSplit"))
+        keep_next = len(rows) <= 5 and index < len(rows) - 1
+        for cell, item in zip(current.cells, row):
+            paragraph = cell.paragraphs[0]
+            if keep_next:
+                paragraph.paragraph_format.keep_with_next = True
+            fragment = paragraph.add_run(item.replace("`", ""))
+            fragment.font.size = Pt(9)
+            fragment.bold = index == 0
+        cell_style = styles["cell_heading" if not index else "cell"]
+        cells.append([Paragraph(markup(item), cell_style) for item in row])
+    widths = [78, 74, 92, 107, 121] if len(rows[0]) == 5 else [122, 142, 208]
+    layout = Table(cells, colWidths=widths, repeatRows=1, hAlign="LEFT")
+    layout.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E3EAF2")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LINEBELOW", (0, 0), (-1, 0), 0.7, colors.HexColor("#94A3B8")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F4F7FA")]),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    return [layout, Spacer(1, 8)]
+
+
+def _find_referenced_image(kind, content):
+    if kind != "body":
+        return None
+    source = re.search(r"Archivo: docs/(diagrams/[a-z4-]+\.mmd|evidence/[a-z-]+\.png)\.", content)
+    if not source:
+        return None
+    image = DOCS / Path(source.group(1)).with_suffix(".png")
+    return image if image.is_file() else None
+
+
+def _render_text_block(document, kind, content, references):
+    paragraph = document.add_paragraph(style=WORD_STYLES.get(kind, "Normal"))
+    if references and kind == "body":
+        paragraph.paragraph_format.left_indent = Inches(0.5)
+        paragraph.paragraph_format.first_line_indent = Inches(-0.5)
+        kind = "reference"
+    if kind == "subheading" and content == "Referencias":
+        paragraph.paragraph_format.page_break_before = True
+    put(paragraph, content)
+    block = Paragraph(markup(content), styles[kind], bulletText="•" if kind == "bullet" else None)
+    image = _find_referenced_image(kind, content)
+    if not image:
+        return block
+    with RasterImage.open(image) as bitmap:
+        width, height = bitmap.size
+    scale = min(468 / width, 228 / height)
+    paragraph.paragraph_format.keep_with_next = True
+    holder = document.add_paragraph()
+    holder.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    holder.add_run().add_picture(str(image), width=Pt(width * scale))
+    figure = Image(str(image), width=width * scale, height=height * scale)
+    return KeepTogether([block, figure, Spacer(1, 8)])
+
+
+def _build_pdf(blocks):
+    pdf = SimpleDocTemplate(
+        str(PDF),
+        title="Informe final de MotoSys",
+        pagesize=letter,
+        leftMargin=64,
+        rightMargin=64,
+        topMargin=58,
+        bottomMargin=57,
+    )
+
+    def page_number(canvas, doc):
+        canvas.setFont("Times-Roman", 10)
+        canvas.setFillColor(colors.HexColor("#334155"))
+        canvas.drawRightString(letter[0] - 64, 32, str(doc.page))
+
+    pdf.build(blocks, onFirstPage=page_number, onLaterPages=page_number)
+
+
+def export():
+    document = _create_word_document()
     blocks = []
     references = False
 
@@ -122,69 +223,12 @@ def export():
             references = True
             blocks.append(PageBreak())
         if kind == "table":
-            rows = content
-            table = document.add_table(rows=0, cols=len(rows[0]))
-            table.style = "Light Shading Accent 1"
-            cells = []
-            for index, row in enumerate(rows):
-                current = table.add_row()
-                if not index:
-                    current._tr.get_or_add_trPr().append(OxmlElement("w:tblHeader"))
-                current._tr.get_or_add_trPr().append(OxmlElement("w:cantSplit"))
-                for cell, item in zip(current.cells, row):
-                    paragraph = cell.paragraphs[0]
-                    if len(rows) <= 5 and index < len(rows)-1:
-                        paragraph.paragraph_format.keep_with_next = True
-                    fragment = paragraph.add_run(item.replace("`", ""))
-                    fragment.font.size = Pt(9)
-                    fragment.bold = index == 0
-                cells.append([Paragraph(markup(item), styles["cell_heading" if not index else "cell"]) for item in row])
-            widths = [78, 74, 92, 107, 121] if len(rows[0]) == 5 else [122, 142, 208]
-            layout = Table(cells, colWidths=widths, repeatRows=1, hAlign="LEFT")
-            layout.setStyle(TableStyle([
-                ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#E3EAF2")),
-                ("VALIGN", (0,0), (-1,-1), "TOP"),
-                ("LINEBELOW", (0,0), (-1,0), 0.7, colors.HexColor("#94A3B8")),
-                ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.white, colors.HexColor("#F4F7FA")]),
-                ("BOTTOMPADDING", (0,0), (-1,-1), 5), ("TOPPADDING", (0,0), (-1,-1), 5),
-            ]))
-            blocks.extend([layout, Spacer(1,8)])
-            continue
-        word_style = {"title":"Title","heading":"Heading 1","subheading":"Heading 2","bullet":"List Bullet"}.get(kind, "Normal")
-        paragraph = document.add_paragraph(style=word_style)
-        if references and kind == "body":
-            paragraph.paragraph_format.left_indent = Inches(.5)
-            paragraph.paragraph_format.first_line_indent = Inches(-.5)
-            kind = "reference"
-        if kind == "subheading" and content == "Referencias":
-            paragraph.paragraph_format.page_break_before = True
-        put(paragraph, content)
-        block = Paragraph(markup(content), styles[kind], bulletText="•" if kind=="bullet" else None)
-        source = re.search(r"Archivo: docs/(diagrams/[a-z4-]+\.mmd|evidence/[a-z-]+\.png)\.", content) if kind == "body" else None
-        image = DOCS / Path(source.group(1)).with_suffix(".png") if source else None
-        if image and image.is_file():
-            with RasterImage.open(image) as bitmap:
-                width, height = bitmap.size
-            scale = min(468 / width, 228 / height)
-            paragraph.paragraph_format.keep_with_next = True
-            holder = document.add_paragraph()
-            holder.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            holder.add_run().add_picture(str(image), width=Pt(width*scale))
-            figure = Image(str(image), width=width*scale, height=height*scale)
-            blocks.append(KeepTogether([block, figure, Spacer(1, 8)]))
+            blocks.extend(_render_table(document, content))
         else:
-            blocks.append(block)
+            blocks.append(_render_text_block(document, kind, content, references))
 
     document.save(WORD)
-    pdf = SimpleDocTemplate(str(PDF), title="Informe final de MotoSys", pagesize=letter,
-                            leftMargin=64, rightMargin=64, topMargin=58, bottomMargin=57)
-
-    def page_number(canvas, doc):
-        canvas.setFont("Times-Roman", 10)
-        canvas.setFillColor(colors.HexColor("#334155"))
-        canvas.drawRightString(letter[0]-64, 32, str(doc.page))
-
-    pdf.build(blocks, onFirstPage=page_number, onLaterPages=page_number)
+    _build_pdf(blocks)
 
 
 if __name__ == "__main__":

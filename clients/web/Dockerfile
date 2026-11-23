@@ -1,7 +1,7 @@
 FROM node:22.18.0-bookworm-slim AS build
 WORKDIR /clients/web
 COPY web/package*.json ./
-RUN npm ci --no-audit --no-fund
+RUN npm ci --ignore-scripts --no-audit --no-fund
 COPY shared /clients/shared
 COPY web/ .
 RUN npm run build
