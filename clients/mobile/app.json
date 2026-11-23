@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "MotoSys",
+    "slug": "motosys",
+    "version": "1.0.0",
+    "scheme": "motosys",
+    "orientation": "portrait",
+    "android": {
+      "package": "co.motosys.mobile"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-document-picker"
+    ],
+    "icon": "./assets/motosys.png"
+  }
+}

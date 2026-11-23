@@ -1,551 +1,560 @@
 {
-    "openapi": "3.1.0",
-    "info": {
-        "title": "MotoSys Notify",
-        "version": "1.0.0"
-    },
-    "servers": [
-        {
-            "url": "http://127.0.0.1:13001",
-            "description": "Generated server url"
-        }
-    ],
-    "security": [
-        {
-            "session": []
-        }
-    ],
-    "paths": {
-        "/reminders": {
-            "get": {
-                "tags": [
-                    "reminder-controller"
-                ],
-                "operationId": "list",
-                "parameters": [
-                    {
-                        "name": "Authorization",
-                        "in": "header",
-                        "required": false,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {
-                            "*/*": {
-                                "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/components/schemas/Reminder"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "tags": [
-                    "reminder-controller"
-                ],
-                "operationId": "create",
-                "parameters": [
-                    {
-                        "name": "Authorization",
-                        "in": "header",
-                        "required": false,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/Request"
-                            }
-                        }
-                    },
-                    "required": true
-                },
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "content": {
-                            "*/*": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Reminder"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/internal/notifications/events": {
-            "post": {
-                "tags": [
-                    "notification-controller"
-                ],
-                "operationId": "ingest",
-                "parameters": [
-                    {
-                        "name": "Authorization",
-                        "in": "header",
-                        "required": false,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "name": "Idempotency-Key",
-                        "in": "header",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/Event"
-                            }
-                        }
-                    },
-                    "required": true
-                },
-                "responses": {
-                    "201": {
-                        "description": "Evento registrado"
-                    },
-                    "200": {
-                        "description": "Evento ya registrado"
-                    },
-                    "401": {
-                        "description": "Credencial interna inv\u00e1lida"
-                    },
-                    "409": {
-                        "description": "Idempotency-Key no coincide con el evento"
-                    }
-                },
-                "security": [
-                    {
-                        "serviceToken": []
-                    }
-                ]
-            }
-        },
-        "/documents/{motorcycleId}": {
-            "get": {
-                "tags": [
-                    "document-controller"
-                ],
-                "operationId": "list_1",
-                "parameters": [
-                    {
-                        "name": "Authorization",
-                        "in": "header",
-                        "required": false,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "name": "motorcycleId",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string",
-                            "format": "uuid"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {
-                            "*/*": {
-                                "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/components/schemas/Metadata"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "tags": [
-                    "document-controller"
-                ],
-                "operationId": "upload",
-                "parameters": [
-                    {
-                        "name": "Authorization",
-                        "in": "header",
-                        "required": false,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "name": "motorcycleId",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string",
-                            "format": "uuid"
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "content": {
-                        "multipart/form-data": {
-                            "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "file": {
-                                        "type": "string",
-                                        "format": "binary"
-                                    }
-                                },
-                                "required": [
-                                    "file"
-                                ]
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "content": {
-                            "*/*": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Metadata"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/reports/notifications/{format}": {
-            "get": {
-                "tags": [
-                    "report-controller"
-                ],
-                "operationId": "report",
-                "parameters": [
-                    {
-                        "name": "Authorization",
-                        "in": "header",
-                        "required": false,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "name": "format",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string",
-                            "enum": [
-                                "csv",
-                                "pdf"
-                            ]
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {
-                            "*/*": {
-                                "schema": {
-                                    "type": "string",
-                                    "format": "byte"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/reports/motorcycles/{motorcycleId}/{format}": {
-            "get": {
-                "tags": [
-                    "report-controller"
-                ],
-                "operationId": "motorcycleReport",
-                "parameters": [
-                    {
-                        "name": "Authorization",
-                        "in": "header",
-                        "required": false,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "name": "motorcycleId",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string",
-                            "format": "uuid"
-                        }
-                    },
-                    {
-                        "name": "format",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string",
-                            "enum": [
-                                "csv",
-                                "pdf"
-                            ]
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {
-                            "*/*": {
-                                "schema": {
-                                    "type": "string",
-                                    "format": "byte"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/notifications": {
-            "get": {
-                "tags": [
-                    "notification-controller"
-                ],
-                "operationId": "list_2",
-                "parameters": [
-                    {
-                        "name": "Authorization",
-                        "in": "header",
-                        "required": false,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {
-                            "*/*": {
-                                "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/components/schemas/Notice"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/documents/{motorcycleId}/{documentId}": {
-            "get": {
-                "tags": [
-                    "document-controller"
-                ],
-                "operationId": "download",
-                "parameters": [
-                    {
-                        "name": "Authorization",
-                        "in": "header",
-                        "required": false,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "name": "motorcycleId",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string",
-                            "format": "uuid"
-                        }
-                    },
-                    {
-                        "name": "documentId",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string",
-                            "format": "uuid"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {
-                            "*/*": {
-                                "schema": {
-                                    "type": "string",
-                                    "format": "byte"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    },
-    "components": {
-        "schemas": {
-            "Request": {
-                "type": "object",
-                "properties": {
-                    "motorcycleId": {
-                        "type": "string",
-                        "format": "uuid"
-                    },
-                    "dueAt": {
-                        "type": "string",
-                        "format": "date-time"
-                    },
-                    "kilometers": {
-                        "type": "integer",
-                        "format": "int32"
-                    }
-                },
-                "required": [
-                    "motorcycleId"
-                ]
-            },
-            "Reminder": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "string"
-                    },
-                    "userId": {
-                        "type": "string"
-                    },
-                    "motorcycleId": {
-                        "type": "string"
-                    },
-                    "dueAt": {
-                        "type": "string",
-                        "format": "date-time"
-                    },
-                    "kilometers": {
-                        "type": "integer",
-                        "format": "int32"
-                    },
-                    "status": {
-                        "type": "string"
-                    }
-                }
-            },
-            "Event": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "string",
-                        "format": "uuid"
-                    },
-                    "kind": {
-                        "type": "string",
-                        "enum": [
-                            "MAINTENANCE",
-                            "EXPENSE"
-                        ]
-                    },
-                    "motorcycle_id": {
-                        "type": "string",
-                        "format": "uuid"
-                    },
-                    "actor_id": {
-                        "type": "string",
-                        "format": "uuid"
-                    }
-                },
-                "required": [
-                    "actor_id",
-                    "id",
-                    "kind",
-                    "motorcycle_id"
-                ]
-            },
-            "Metadata": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "string"
-                    },
-                    "fileHash": {
-                        "type": "string"
-                    },
-                    "size": {
-                        "type": "integer",
-                        "format": "int32"
-                    },
-                    "createdAt": {
-                        "type": "string",
-                        "format": "date-time"
-                    }
-                }
-            },
-            "Notice": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "string"
-                    },
-                    "userId": {
-                        "type": "string"
-                    },
-                    "motorcycleId": {
-                        "type": "string"
-                    },
-                    "kind": {
-                        "type": "string"
-                    },
-                    "createdAt": {
-                        "type": "string",
-                        "format": "date-time"
-                    }
-                }
-            }
-        },
-        "securitySchemes": {
-            "session": {
-                "type": "http",
-                "description": "Sesi\u00f3n opaca de MotoSys",
-                "scheme": "bearer"
-            },
-            "serviceToken": {
-                "type": "http",
-                "description": "Credencial interna de entrega",
-                "scheme": "bearer"
-            }
-        }
+  "openapi": "3.1.0",
+  "info": {
+    "title": "MotoSys Notify",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:18443",
+      "description": "Generated server url"
     }
+  ],
+  "security": [
+    {
+      "session": []
+    },
+    {
+      "webSession": []
+    }
+  ],
+  "paths": {
+    "/reminders": {
+      "get": {
+        "tags": [
+          "reminder-controller"
+        ],
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Reminder"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "reminder-controller"
+        ],
+        "operationId": "create",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Request"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reminder"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/notifications/events": {
+      "post": {
+        "tags": [
+          "notification-controller"
+        ],
+        "operationId": "ingest",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Event"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Evento registrado"
+          },
+          "200": {
+            "description": "Evento ya registrado"
+          },
+          "401": {
+            "description": "Credencial interna inválida"
+          },
+          "409": {
+            "description": "Idempotency-Key no coincide con el evento"
+          }
+        },
+        "security": [
+          {
+            "serviceToken": []
+          }
+        ]
+      }
+    },
+    "/documents/{motorcycleId}": {
+      "get": {
+        "tags": [
+          "document-controller"
+        ],
+        "operationId": "list_1",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "motorcycleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Metadata"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "document-controller"
+        ],
+        "operationId": "upload",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "motorcycleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Metadata"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reports/notifications/{format}": {
+      "get": {
+        "tags": [
+          "report-controller"
+        ],
+        "operationId": "report",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "csv",
+                "pdf"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reports/motorcycles/{motorcycleId}/{format}": {
+      "get": {
+        "tags": [
+          "report-controller"
+        ],
+        "operationId": "motorcycleReport",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "motorcycleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "format",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "csv",
+                "pdf"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/notifications": {
+      "get": {
+        "tags": [
+          "notification-controller"
+        ],
+        "operationId": "list_2",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Notice"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{motorcycleId}/{documentId}": {
+      "get": {
+        "tags": [
+          "document-controller"
+        ],
+        "operationId": "download",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "motorcycleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Request": {
+        "type": "object",
+        "properties": {
+          "motorcycleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dueAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "kilometers": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "required": [
+          "motorcycleId"
+        ]
+      },
+      "Reminder": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "motorcycleId": {
+            "type": "string"
+          },
+          "dueAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "kilometers": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "Event": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "MAINTENANCE",
+              "EXPENSE"
+            ]
+          },
+          "motorcycle_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "actor_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "actor_id",
+          "id",
+          "kind",
+          "motorcycle_id"
+        ]
+      },
+      "Metadata": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "fileHash": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Notice": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "motorcycleId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "session": {
+        "type": "http",
+        "description": "Sesión opaca de MotoSys",
+        "scheme": "bearer"
+      },
+      "serviceToken": {
+        "type": "http",
+        "description": "Credencial interna de entrega",
+        "scheme": "bearer"
+      },
+      "webSession": {
+        "type": "apiKey",
+        "description": "Sesión Web. Envía X-CSRF-Token para mutaciones.",
+        "name": "__Host-motosys",
+        "in": "cookie"
+      }
+    }
+  }
 }

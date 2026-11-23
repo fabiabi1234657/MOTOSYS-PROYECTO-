@@ -18,9 +18,13 @@ const definitions = [
   ['post', '/auth/login', 'Inicio local', 201, z.strictObject({
     email, password, client: z.enum(['web','mobile']), totp: z.string().length(6).optional(),
   }), true],
+  ['get', '/auth/session', 'Consultar sesión actual', 200],
   ['post', '/auth/logout', 'Revocar sesión', 201],
   ['get', '/auth/oidc/{provider}/start', 'Inicio federado', 302, null, true],
   ['get', '/auth/oidc/{provider}/callback', 'Retorno federado', 200, null, true],
+  ['post', '/auth/oidc/mobile/exchange', 'Intercambiar credencial OIDC de un solo uso', 201, z.strictObject({
+    ticket: z.string().length(43), verifier: z.string().length(64), code: z.string().length(6).optional(),
+  }), true],
   ['post', '/auth/oidc/mfa', 'Segundo factor federado', 201, z.strictObject({ code: z.string().regex(/^\d{6}$/) }), true],
   ['post', '/auth/password-reset/request', 'Solicitar recuperación', 202, resetRequest, true],
   ['post', '/auth/password-reset/confirm', 'Cambiar contraseña', 201, resetConfirm, true],
@@ -48,6 +52,10 @@ for (const [method, path, summary, status, body, anonymous] of definitions) {
       ? { type: 'string', enum: ['google','microsoft','dev'] }
       : { type: 'string', format: 'uuid' },
   }));
+  if (path.endsWith('/start')) parameters.push(
+    { name: 'ui', in: 'query', schema: { type: 'string', enum: ['1'] } },
+    { name: 'challenge', in: 'query', schema: { type: 'string', pattern: '^[a-f0-9]{64}$' } },
+  );
   if (path.endsWith('/callback')) parameters.push(...['code','state'].map(name => ({
     name, in: 'query', required: true, schema: { type: 'string' },
   })));
@@ -60,6 +68,7 @@ for (const [method, path, summary, status, body, anonymous] of definitions) {
     schema: { type: 'string' },
   });
   const responses = { [status]: { description: 'Operación exitosa' } };
+  if (path.endsWith('/callback')) responses[302] = { description: 'Retorno al cliente Web o Android' };
   if (path.endsWith('/events') && method === 'post') responses[200] = { description: 'Reintento idempotente' };
   for (const [code, description] of Object.entries({
     400: 'Datos inválidos', 401: 'Sesión inválida', 403: 'Acceso denegado', 404: 'No encontrado',

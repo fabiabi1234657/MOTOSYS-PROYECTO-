@@ -1,0 +1,9 @@
+flowchart LR
+  H["HTTP · src/main.mjs"] --> I["Puerto de entrada · application/ports/in/register-vehicle-event.ts"]
+  I --> U["Caso de uso · application/use-cases/register-vehicle-event.ts"]
+  U --> D["Dominio · domain/access.ts"]
+  U --> P["Puerto de salida · application/ports/out/vehicle-event-store.ts"]
+  DB["PostgresVehicleEventStore · infrastructure/adapters/out/postgres-vehicle-event-store.ts"] -. implements .-> P
+  DB --> R[(PostgreSQL)]
+  H --> C["Catálogo, seguridad y autenticación · catalog.mjs / oidc.mjs / password-reset.mjs"]
+  R --> O["Outbox · notifications.mjs / projections.mjs"]

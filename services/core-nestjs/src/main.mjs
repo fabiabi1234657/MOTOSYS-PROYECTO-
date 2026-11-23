@@ -194,7 +194,26 @@ class CoreController {
       throw failure(503, 'El cálculo de TCO no está disponible.');
     }
   }
-  oidcStart(req, res) { return federated.start(req.params.provider, res); }
+  async session(req) {
+    const { account } = await authenticate(req);
+    return { account };
+  }
+
+  oidcStart(req, res) {
+    const challenge = req.query.challenge === undefined ? undefined
+      : validate(z.string().regex(/^[a-f0-9]{64}$/), req.query.challenge);
+    return federated.start(req.params.provider, res, req.query.ui === '1', challenge);
+  }
+
+  async oidcMobile(body, req, res) {
+    await throttle('oidc-mobile', req.ip, 30);
+    const { ticket, verifier, code } = validate(z.strictObject({
+      ticket: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+      verifier: z.string().regex(/^[a-f0-9]{64}$/),
+      code: z.string().regex(/^\d{6}$/).optional(),
+    }), body);
+    return federated.exchangeMobile(ticket, verifier, code, res);
+  }
 
   oidcCallback(req, res) { return federated.callback(req.params.provider, req, res); }
 
@@ -311,9 +330,11 @@ const routes = [
   [Get('health'), 'health', []],
   [Get('auth/oidc/:provider/start'), 'oidcStart', [Req(), Res()]],
   [Get('auth/oidc/:provider/callback'), 'oidcCallback', [Req(), Res({ passthrough: true })]],
+  [Post('auth/oidc/mobile/exchange'), 'oidcMobile', [Body(), Req(), Res({ passthrough: true })]],
   [Post('auth/oidc/mfa'), 'oidcMfa', [Body(), Req(), Res({ passthrough: true })]],
   [Post('auth/register'), 'register', [Body(), Req()]],
   [Post('auth/login'), 'login', [Body(), Req(), Res({ passthrough: true })]],
+  [Get('auth/session'), 'session', [Req()]],
   [Post('auth/logout'), 'logout', [Req(), Res({ passthrough: true })]],
   [Get('motorcycles/:motorcycleId/events'), 'events', [Req()]],
   [Post('motorcycles/:motorcycleId/events'), 'addEvent', [Body(), Req(), Res({ passthrough: true })]],

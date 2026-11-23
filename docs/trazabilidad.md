@@ -1,19 +1,16 @@
-# Trazabilidad del instructivo 2026-2
+# Matriz de trazabilidad de MotoSys
 
-Criterios extraídos del instructivo de Programación Avanzada y cotejados con los dos documentos previos de MotoSys. El diseño anterior usa Express como núcleo, FastAPI para notificaciones y Flutter para el cliente móvil. El diseño aprobado cambia a NestJS, Spring Boot, FastAPI para analítica y Expo. Se conservan los flujos de historial vehicular, mantenimiento, gastos, alertas y administración, junto con los escenarios de caché, caída de notificaciones y registro móvil con conectividad limitada.
-
-| Criterio | Caso o demostración | Código o evidencia disponible | Estado |
-| --- | --- | --- | --- |
-| Tres backends y hexagonal principal | Seguir una operación desde HTTP hasta el motor de datos | `services/core-nestjs/src/domain` | Parcial. El registro idempotente tiene puertos y adaptador PostgreSQL. Las rutas NestJS permiten registrar cuentas y consultar y registrar eventos. Faltan los servicios Java y Python. |
-| Cinco módulos y tres procesos avanzados | Registrar moto, servicio y gasto, recibir alerta y consultar analítica | `infra/init` | Parcial. Esquemas iniciales. |
-| Dos Compose, red y cinco motores | Levantar datos y aplicaciones, leer y escribir en cada motor | `infra/compose.datos.yml` y `infra/scripts/init-network.ps1` | Parcial. Cinco motores verificados con escritura y lectura. El Compose de aplicaciones incluye el núcleo y RabbitMQ. |
-| Identidad y recuperación | Inicio local, Google y Microsoft, restablecimiento seguro y TOTP administrativo | `password-policy.ts` y tres pruebas unitarias | Parcial. Inicio local con Argon2id y TOTP. OIDC verificado con proveedor simulado. Quedan pendientes la integración externa y la recuperación de cuentas. |
-| Sesiones y autorización | Revocar sesión, comprobar caducidades y probar acceso a objetos desde cada API | `access.ts` y tres pruebas unitarias | Parcial. Sesiones opacas, cookies y control por objeto integrados en el núcleo. Faltan las APIs secundarias. |
-| Integridad | Forzar altas simultáneas y verificar HTTP 409, reintentar una operación con clave idempotente | `infra/init/postgres.sql` y `infra/init/mongo.js` | Parcial. PostgreSQL rechazó una de dos altas concurrentes con SQLSTATE 23505. El alta pública traduce el conflicto a HTTP 409. |
-| Caché | Medir aciertos, fallos y latencia y comprobar invalidación | Cache-aside con TTL, invalidación y métricas en NestJS | Integrado para el historial. |
-| Concurrencia y paralelismo | Medir procesos reales de los tres backends con entradas reproducibles | | Pendiente. |
-| Operación y recuperación | Cargar datos ficticios, respaldar y restaurar, repetir desde cero | `README.md` | Parcial. Inicio documentado para datos. |
-| OpenAPI y pruebas | Adjuntar especificaciones HTTP y demostrar diez pruebas automatizadas como mínimo | Ocho pruebas unitarias y pruebas de integración HTTP y SQL | Parcial. Las pruebas unitarias cubren reglas aisladas. |
-| Web y APK | Completar la misma tarea en ambos clientes para cada rol y probar recuperación del flujo offline | | Pendiente. |
-| Informe y entrega | Once componentes con APA 7, PDF y editable, ZIP, APK y enlace GitHub con commit o etiqueta | Esta matriz de seguimiento | Pendiente. El instructivo fija la entrega en Moodle el 25 de noviembre y la sustentación el 2 de diciembre de 2026. |
-
+| Requisito | Caso de uso | Módulo o API | Prueba | Evidencia |
+| --- | --- | --- | --- | --- |
+| RF01 | Acceder, cerrar sesión y recuperar acceso | Core /auth | OIDC simulado, Argon2id, revocación, MFA, token único | tests/integration/test_core_http.py y test_phases_2b_3.py |
+| RF02 | Registrar motocicleta y kilometraje propio | Core /motorcycles | Placa duplicada, RBAC, proyección del odómetro | test_phases_2b_3.py |
+| RF03 | Registrar y consultar un gasto o mantenimiento | Core /motorcycles/{id}/events | Alta 201, reenvío 200, conflicto 409, invalidación | test_core_http.py |
+| RF04 | Consultar taller, registrar SKU y emitir factura | Core /workshops | Conflicto de SKU y factura | test_core_http.py |
+| RF05 | Gestionar notificaciones, documentos, recordatorios e informes | Notify /notifications, /documents, /reminders y /reports | Deduplicación HTTP y AMQP, documento 409, aviso por odómetro, CSV/PDF | test_phases_2b_3.py y ReportControllerTest.java |
+| RF06 | Verificar auditoría y uso de caché | Core /admin/audit y /admin/cache-metrics | Denegación a RIDER y evento en Cassandra | test_core_http.py y test_phases_2b_3.py |
+| RF07 | Analizar costos, frecuencia y mantenimiento esperado | Analytics /analytics | pytest E2E con Redis, PostgreSQL y ClickHouse, benchmark | services/analytics-python/tests y fases-4-5.md |
+| RF08 | Registrar sin conexión y reintentar | Expo, AsyncStorage y Core | Conservación de Idempotency-Key y retención de conflicto | clients/mobile/test/offline.test.mjs |
+| RNF01 | Arrancar y recuperar datos | Dos Compose y motosys_net | Cinco motores con escritura/lectura y restauración de seis volúmenes | fases-4-5.md |
+| RNF02 | Acotar uso de recursos | Docker stats, pool Node, executor Java, joblib | 1.175 solicitudes sin errores en 120 s, pico 2,10 GiB | carga-fases-4-5.json |
+| RNF03 | Operar desde Web y Android | React/Vite, Expo, contratos compartidos | Build Web, recorrido Edge HTTPS, typecheck, pruebas móviles y firma del APK | docs/fase-6.md y docs/evidence |
+| RNF04 | Navegar con tecnología asistiva | Foco, etiquetas, aria-live y accesibilidad nativa | Revisión estructural. Auditoría completa pendiente | docs/brand-guide.md |

@@ -63,3 +63,7 @@ docs/fases-2b-3.md
 
 infra/tls/
 infra/backups/
+
+.android-sdk/
+.phase6/
+clients/mobile/android/

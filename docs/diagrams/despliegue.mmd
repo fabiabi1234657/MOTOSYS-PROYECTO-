@@ -1,0 +1,19 @@
+flowchart TB
+  Client["Navegador / Android"] -->|HTTPS| N["Nginx 8443"]
+  subgraph App["infra/compose.apps.yml"]
+    N --> Core["core-nestjs 3000"]
+    N --> Notify["notify-java 3001"]
+    N --> Analytics["analytics-python 3002"]
+    Core --> Queue["RabbitMQ"]
+    Queue --> Notify
+  end
+  Core --> Net["Red externa motosys_net"]
+  Notify --> Net
+  Analytics --> Net
+  subgraph Data["infra/compose.datos.yml"]
+    Net --> PG["PostgreSQL · volumen"]
+    Net --> MG["MongoDB · volumen"]
+    Net --> RS["Redis · volumen"]
+    Net --> CA["Cassandra · volumen"]
+    Net --> CH["ClickHouse · volumen"]
+  end

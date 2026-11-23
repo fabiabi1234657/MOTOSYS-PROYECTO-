@@ -1,31 +1,23 @@
-# Diccionario de datos de MotoSys
+# Diccionario de datos
 
-## PostgreSQL
+| Motor | Entidad o clave | Campos y controles | Uso |
+| --- | --- | --- | --- |
+| PostgreSQL | users | id UUID PK, email normalizado único, password_hash opcional, role, workshop_id según rol, totp_secret cifrado, session_version | Identidad y revocación |
+| PostgreSQL | workshops, workshop_products | Taller UUID, document_id único, producto identificado por workshop_id y SKU normalizado | Organización y catálogo |
+| PostgreSQL | motorcycles | id UUID PK, owner_id, workshop_id opcional, placa normalizada única, marca, modelo, odometer_km entero no negativo | Vehículo y ámbito actual |
+| PostgreSQL | vehicle_events | id, moto, actor, tipo, categoría, descripción, COP, occurred_at, clave idempotente y hash del contenido | Historial y datos de origen |
+| PostgreSQL | service_invoices | id, taller, moto, serie, consecutivo, importe y timestamp. Unicidad por taller, serie y número | Facturación |
+| PostgreSQL | user_documents, oidc_identities | Documento único por tipo, jurisdicción y número. Identidad federada por emisor y sujeto | Identificadores |
+| PostgreSQL | notification_outbox, projection_outbox | ID, carga o referencia, seguimiento de entrega y vencimiento del reintento | Entrega eventual |
+| Redis | session:SHA-256 | userId, expiresAt, mfa, version. 30 min de inactividad, máximo 8 h | Sesión compartida y revocable |
+| Redis | cache de vehículos, límites y recuperaciones | Claves de caché versionadas, contadores, tokens de recuperación y OIDC con TTL | Caché, límites y seguridad |
+| MongoDB | notifications, reminders, vehicle_documents | Aviso por ID, recordatorio por fecha/kilometraje, documento con binario e índice único por moto/hash | Notificaciones y documentos |
+| Cassandra | odometer_readings_by_moto | Clave partición motorcycle_id, orden por recorded_at y reading_id, actor y kilómetros | Historial de kilometraje |
+| Cassandra | audit_events_by_day | Día UTC, event_id timeuuid, actor, acción, sujeto y resultado. Inserción condicional | Auditoría |
+| ClickHouse | fact_vehicle_events | UUID de evento y moto; propietario, taller nullable, marca, tipo y categoría; importe UInt64 COP y DateTime64 UTC | Consultas OLAP |
 
-PostgreSQL es la fuente de verdad de cuentas, talleres, motocicletas y operaciones económicas. Los identificadores UUID se comparten con los motores secundarios.
+## Modelo analítico
 
-| Tabla | Claves, datos y reglas |
-| --- | --- |
-| `users` | `id` UUID generado, `email` texto normalizado y único, `password_hash` texto opcional, `role` texto obligatorio y `workshop_id` UUID requerido solo para administradores de taller. |
-| `workshops` | `id` UUID generado, `name` texto y `document_id` texto único. |
-| `user_documents` | `user_id` referencia a cuenta. Tipo, jurisdicción y número son textos en mayúsculas y forman la clave. Ejemplo ficticio `CC / CO / DEMO001`. |
-| `motorcycles` | `id` UUID generado, `owner_id` referencia a cuenta, `workshop_id` referencia opcional, placa única en mayúsculas, marca y modelo como texto, odómetro entero no negativo. |
-| `workshop_products` | `workshop_id` referencia a taller, SKU normalizado y nombre como texto. Clave por taller y SKU. |
-| `service_invoices` | UUID generado, referencias obligatorias a taller y vehículo, serie normalizada, consecutivo entero positivo, importe entero en COP y fecha de emisión con zona horaria. Unicidad por taller, serie y consecutivo. |
-| `vehicle_events` | UUID generado, referencias al vehículo y actor, tipo `MAINTENANCE` o `EXPENSE`, categoría y descripción como texto, importe entero en COP y fecha con zona horaria. Clave idempotente única por actor y tipo. El hash de la solicitud permite distinguir reintentos de cambios de contenido. |
+La granularidad es **un evento de mantenimiento o gasto por UUID**, proyectado desde PostgreSQL. La fecha UTC, motocicleta, propietario, taller, marca, tipo y categoría son dimensiones. `amount_cop` es la medida aditiva y el conteo se obtiene de los hechos deduplicados. Las particiones son mensuales. La clave física es moto, fecha e ID de evento. `ReplacingMergeTree` conserva versiones durante compactación y las consultas del API usan `FINAL` para consolidarlas en lectura.
 
-## MongoDB
-
-Las colecciones iniciales tienen índices para consultar notificaciones por usuario y fecha, seleccionar recordatorios por estado y vencimiento, y evitar la duplicación de un documento por motocicleta y hash de archivo. El contrato de documentos y los estados definitivos dependen del servicio Java pendiente.
-
-## Cassandra
-
-`odometer_readings_by_moto` agrupa por UUID del vehículo y ordena por fecha de lectura descendente. Cada lectura guarda UUID de lectura, kilometraje entero y UUID del actor. `audit_events_by_day` agrupa por fecha y ordena por `timeuuid`; almacena actor, acción, sujeto y resultado. Las tablas existen. Los permisos de escritura y el adaptador de auditoría permanecen pendientes.
-
-## Redis
-
-El motor tiene persistencia AOF y límite de 64 MiB para datos. El diseño prevé espacios de claves independientes para sesión y caché, con caducidades definidas por cada operación. La aplicación aún carece de productores y consumidores para esos espacios.
-
-## ClickHouse
-
-`fact_vehicle_events` tiene como grano un evento de mantenimiento o gasto originado en PostgreSQL. Las dimensiones son fecha UTC, vehículo, propietario, taller opcional, marca, tipo y categoría. El importe entero en COP es la medida. La partición es mensual y la clave de ordenamiento usa vehículo, fecha e identificador del evento. La ingesta y la reconciliación con PostgreSQL permanecen pendientes.
+El TCO disponible suma los importes registrados. La agregación mensual usa intervalo semiabierto de fechas y una dimensión seleccionada. El recuento de mantenimientos separa preventivos, correctivos y no clasificados. PostgreSQL determina la autorización de cada vehículo al consultar, de acuerdo con su asignación actual.

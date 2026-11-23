@@ -83,3 +83,25 @@ test('OIDC valida firma, nonce, PKCE y vinculación local para ' + provider, asy
   await assert.rejects(callback, { status: 401 });
 });
 }
+
+test('OIDC móvil liga el canje al verificador y consume la credencial una sola vez', async () => {
+  const ticket = 't'.repeat(43);
+  const verifier = '3'.repeat(64);
+  const sha = value => createHash('sha256').update(value).digest('hex');
+  const key = 'oidc:mobile:' + sha(ticket);
+  const entries = new Map([[key, JSON.stringify({userId:'account',version:3,challenge:sha(verifier)})]]);
+  const handlers = oidcHandlers({
+    redis: {
+      get: async name => entries.get(name),
+      getDel: async name => { const value = entries.get(name); entries.delete(name); return value; },
+    },
+    db: { query: async () => ({rows:[{id:'account',role:'WORKSHOP_ADMIN',session_version:3}]}) },
+    failure: (status, message) => Object.assign(new Error(message), {status}),
+    sha,
+    verifyMfa: async (_, code) => assert.equal(code, '012345'),
+    createSession: async (_, client, _res, mfa) => ({client,mfa}),
+  });
+  await assert.rejects(handlers.exchangeMobile(ticket, '0'.repeat(64), '012345'), { status: 401 });
+  assert.deepEqual(await handlers.exchangeMobile(ticket, verifier, '012345'), {client:'mobile',mfa:true});
+  await assert.rejects(handlers.exchangeMobile(ticket, verifier, '012345'), { status: 401 });
+});

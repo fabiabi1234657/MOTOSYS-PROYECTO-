@@ -1,0 +1,18 @@
+flowchart LR
+  Web["React / Vite"] --> P["Nginx HTTPS"]
+  APK["React Native / Expo"] --> P
+  P --> C["NestJS"]
+  P --> J["Spring Boot"]
+  P --> A["FastAPI"]
+  C --> PSQL[(PostgreSQL)]
+  C --> R[(Redis)]
+  C --> CS[(Cassandra)]
+  C --> CH[(ClickHouse)]
+  C --> J
+  C --> Q["RabbitMQ"] --> J
+  J --> M[(MongoDB)]
+  J --> PSQL
+  J --> R
+  A --> PSQL
+  A --> R
+  A --> CH
