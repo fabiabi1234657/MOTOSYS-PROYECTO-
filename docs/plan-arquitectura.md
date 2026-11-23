@@ -241,3 +241,5 @@ La implementación y evidencia de las fases 2B y 3 se registran en [el informe d
 ### Verificación de Memoria y Manual
 1. Levantar `compose.datos.yml` + `compose.apps.yml` completos y medir `docker stats` durante ráfaga sostenida (verificar que Cassandra no supere el umbral seguro y el total permanezca estable en el equipo de 8 GB RAM).
 2. Probar los 3 roles en **Web** y en la **APK instalada en teléfono Android** (incluyendo modo offline, recuperación de cuenta, respaldo y restauración de volúmenes).
+
+Consulta [los comandos y resultados de las fases 4 y 5](fases-4-5.md) para analítica, TLS, respaldo y carga.

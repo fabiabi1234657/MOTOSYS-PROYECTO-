@@ -1,8 +1,11 @@
 <clickhouse>
-  <max_server_memory_usage>536870912</max_server_memory_usage>
+  <max_server_memory_usage>671088640</max_server_memory_usage>
   <max_thread_pool_size>512</max_thread_pool_size>
   <background_pool_size>8</background_pool_size>
   <background_schedule_pool_size>16</background_schedule_pool_size>
+  <!-- Avoid historical metric log merges on the development memory budget. -->
+  <metric_log remove="1"/>
+  <asynchronous_metric_log remove="1"/>
   <mark_cache_size>16777216</mark_cache_size>
   <merge_tree>
     <number_of_free_entries_in_pool_to_execute_mutation>8</number_of_free_entries_in_pool_to_execute_mutation>

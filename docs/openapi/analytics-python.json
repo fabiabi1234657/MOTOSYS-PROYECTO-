@@ -1,0 +1,543 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "MotoSys Analytics",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/api"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analytics/motorcycles/{motorcycle_id}/tco": {
+      "get": {
+        "summary": "Tco",
+        "operationId": "tco_analytics_motorcycles__motorcycle_id__tco_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "motorcycle_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Motorcycle Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TcoResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analytics/monthly": {
+      "get": {
+        "summary": "Monthly Report",
+        "operationId": "monthly_report_analytics_monthly_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "dimension",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "category",
+                "make",
+                "workshop"
+              ],
+              "type": "string",
+              "title": "Dimension"
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          },
+          {
+            "name": "until",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Until"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MonthlyRow"
+                  },
+                  "title": "Response Monthly Report Analytics Monthly Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analytics/motorcycles/{motorcycle_id}/maintenance": {
+      "get": {
+        "summary": "Maintenance",
+        "operationId": "maintenance_analytics_motorcycles__motorcycle_id__maintenance_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "motorcycle_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Motorcycle Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaintenanceCounts"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analytics/motorcycles/{motorcycle_id}/recommendation": {
+      "get": {
+        "summary": "Recommendation",
+        "operationId": "recommendation_analytics_motorcycles__motorcycle_id__recommendation_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "motorcycle_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Motorcycle Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Recommendation"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analytics/ml/benchmark": {
+      "post": {
+        "summary": "Benchmark Model",
+        "operationId": "benchmark_model_analytics_ml_benchmark_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BenchmarkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyCookie": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BenchmarkRequest": {
+        "properties": {
+          "samples": {
+            "type": "integer",
+            "maximum": 4000.0,
+            "minimum": 200.0,
+            "title": "Samples",
+            "default": 1200
+          },
+          "workers": {
+            "type": "integer",
+            "maximum": 2.0,
+            "minimum": 2.0,
+            "title": "Workers",
+            "default": 2
+          }
+        },
+        "type": "object",
+        "title": "BenchmarkRequest"
+      },
+      "BenchmarkResult": {
+        "properties": {
+          "random_state": {
+            "type": "integer",
+            "title": "Random State"
+          },
+          "samples": {
+            "type": "integer",
+            "title": "Samples"
+          },
+          "workers": {
+            "type": "integer",
+            "title": "Workers"
+          },
+          "sequential_ms": {
+            "type": "number",
+            "title": "Sequential Ms"
+          },
+          "parallel_ms": {
+            "type": "number",
+            "title": "Parallel Ms"
+          },
+          "speedup": {
+            "type": "number",
+            "title": "Speedup"
+          },
+          "matching_predictions": {
+            "type": "boolean",
+            "title": "Matching Predictions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "random_state",
+          "samples",
+          "workers",
+          "sequential_ms",
+          "parallel_ms",
+          "speedup",
+          "matching_predictions"
+        ],
+        "title": "BenchmarkResult"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "MaintenanceCounts": {
+        "properties": {
+          "preventive": {
+            "type": "integer",
+            "title": "Preventive"
+          },
+          "corrective": {
+            "type": "integer",
+            "title": "Corrective"
+          },
+          "unclassified": {
+            "type": "integer",
+            "title": "Unclassified"
+          }
+        },
+        "type": "object",
+        "required": [
+          "preventive",
+          "corrective",
+          "unclassified"
+        ],
+        "title": "MaintenanceCounts"
+      },
+      "MonthlyRow": {
+        "properties": {
+          "month": {
+            "type": "string",
+            "format": "date",
+            "title": "Month"
+          },
+          "bucket": {
+            "type": "string",
+            "title": "Bucket"
+          },
+          "total_cop": {
+            "type": "integer",
+            "title": "Total Cop"
+          },
+          "events": {
+            "type": "integer",
+            "title": "Events"
+          }
+        },
+        "type": "object",
+        "required": [
+          "month",
+          "bucket",
+          "total_cop",
+          "events"
+        ],
+        "title": "MonthlyRow"
+      },
+      "Recommendation": {
+        "properties": {
+          "next_maintenance_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Next Maintenance Date"
+          },
+          "expected_cost_cop": {
+            "type": "integer",
+            "title": "Expected Cost Cop"
+          },
+          "history_events": {
+            "type": "integer",
+            "title": "History Events"
+          },
+          "random_state": {
+            "type": "integer",
+            "title": "Random State"
+          }
+        },
+        "type": "object",
+        "required": [
+          "next_maintenance_date",
+          "expected_cost_cop",
+          "history_events",
+          "random_state"
+        ],
+        "title": "Recommendation"
+      },
+      "TcoResult": {
+        "properties": {
+          "tco_cop": {
+            "type": "integer",
+            "title": "Tco Cop"
+          },
+          "expenses_cop": {
+            "type": "integer",
+            "title": "Expenses Cop"
+          },
+          "maintenance_cop": {
+            "type": "integer",
+            "title": "Maintenance Cop"
+          },
+          "events": {
+            "type": "integer",
+            "title": "Events"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tco_cop",
+          "expenses_cop",
+          "maintenance_cop",
+          "events"
+        ],
+        "title": "TcoResult"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      },
+      "APIKeyCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-motosys"
+      }
+    }
+  }
+}
