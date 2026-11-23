@@ -48,7 +48,7 @@ services:
       retries: 12
   cassandra:
     image: cassandra:4.1.6
-    mem_limit: 640m
+    mem_limit: 768m
     environment:
       MAX_HEAP_SIZE: 256M
       HEAP_NEWSIZE: 64M
@@ -65,7 +65,7 @@ services:
       retries: 12
   clickhouse:
     image: clickhouse/clickhouse-server:24.8-alpine
-    mem_limit: 640m
+    mem_limit: 768m
     environment:
       CLICKHOUSE_DB: motosys
       CLICKHOUSE_USER: motosys

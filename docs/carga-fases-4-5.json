@@ -1,0 +1,550 @@
+{
+  "duration_requested_s": 120,
+  "memory_samples": 30,
+  "peak_simultaneous_mib": 2148.63,
+  "peak_mib_by_container": {
+    "motosys-f45-data-clickhouse-1": 347.5,
+    "motosys-f45-data-cassandra-1": 728.9,
+    "motosys-f45-data-postgres-1": 66.41,
+    "motosys-f45-data-redis-1": 10.48,
+    "motosys-f45-data-mongo-1": 269.4,
+    "motosys-f45-apps-proxy-1": 3.1,
+    "motosys-f45-apps-analytics-python-1": 110.7,
+    "motosys-f45-apps-core-nestjs-1": 214.9,
+    "motosys-f45-apps-notify-java-1": 309.2,
+    "motosys-f45-apps-rabbitmq-1": 183.3
+  },
+  "state": [
+    "/motosys-f45-data-clickhouse-1|running|false|0",
+    "/motosys-f45-data-cassandra-1|running|false|0",
+    "/motosys-f45-data-postgres-1|running|false|0",
+    "/motosys-f45-data-redis-1|running|false|0",
+    "/motosys-f45-data-mongo-1|running|false|0",
+    "/motosys-f45-apps-proxy-1|running|false|0",
+    "/motosys-f45-apps-analytics-python-1|running|false|0",
+    "/motosys-f45-apps-core-nestjs-1|running|false|0",
+    "/motosys-f45-apps-notify-java-1|running|false|0",
+    "/motosys-f45-apps-rabbitmq-1|running|false|0"
+  ],
+  "errors": {},
+  "routes": {
+    "core.login": {
+      "ok": 1,
+      "p95_ms": 90.4
+    },
+    "core.motos": {
+      "ok": 1,
+      "p95_ms": 30.85
+    },
+    "core.historial": {
+      "ok": 331,
+      "p95_ms": 38.32
+    },
+    "core.odometro": {
+      "ok": 40,
+      "p95_ms": 53.73
+    },
+    "core.gasto": {
+      "ok": 40,
+      "p95_ms": 41.77
+    },
+    "java.notificaciones": {
+      "ok": 331,
+      "p95_ms": 56.44
+    },
+    "analytics.tco": {
+      "ok": 331,
+      "p95_ms": 55.92
+    },
+    "analytics.mensual": {
+      "ok": 83,
+      "p95_ms": 54.12
+    },
+    "analytics.ml": {
+      "ok": 17,
+      "p95_ms": 252.96
+    }
+  },
+  "trace": [
+    {
+      "sample": 1,
+      "total_mib": 2068.07,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 347.5,
+        "motosys-f45-data-cassandra-1": 728.8,
+        "motosys-f45-data-postgres-1": 66.34,
+        "motosys-f45-data-redis-1": 8.38,
+        "motosys-f45-data-mongo-1": 155.1,
+        "motosys-f45-apps-proxy-1": 2.55,
+        "motosys-f45-apps-analytics-python-1": 101.0,
+        "motosys-f45-apps-core-nestjs-1": 214.6,
+        "motosys-f45-apps-notify-java-1": 307.7,
+        "motosys-f45-apps-rabbitmq-1": 136.1
+      }
+    },
+    {
+      "sample": 2,
+      "total_mib": 2066.33,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 317.9,
+        "motosys-f45-data-cassandra-1": 728.8,
+        "motosys-f45-data-postgres-1": 66.41,
+        "motosys-f45-data-redis-1": 8.13,
+        "motosys-f45-data-mongo-1": 155.1,
+        "motosys-f45-apps-proxy-1": 2.59,
+        "motosys-f45-apps-analytics-python-1": 101.0,
+        "motosys-f45-apps-core-nestjs-1": 214.6,
+        "motosys-f45-apps-notify-java-1": 307.8,
+        "motosys-f45-apps-rabbitmq-1": 164.0
+      }
+    },
+    {
+      "sample": 3,
+      "total_mib": 2039.23,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 320.0,
+        "motosys-f45-data-cassandra-1": 728.9,
+        "motosys-f45-data-postgres-1": 64.26,
+        "motosys-f45-data-redis-1": 8.09,
+        "motosys-f45-data-mongo-1": 155.1,
+        "motosys-f45-apps-proxy-1": 2.58,
+        "motosys-f45-apps-analytics-python-1": 101.0,
+        "motosys-f45-apps-core-nestjs-1": 214.6,
+        "motosys-f45-apps-notify-java-1": 308.3,
+        "motosys-f45-apps-rabbitmq-1": 136.4
+      }
+    },
+    {
+      "sample": 4,
+      "total_mib": 2039.22,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 320.0,
+        "motosys-f45-data-cassandra-1": 728.9,
+        "motosys-f45-data-postgres-1": 64.29,
+        "motosys-f45-data-redis-1": 8.11,
+        "motosys-f45-data-mongo-1": 155.1,
+        "motosys-f45-apps-proxy-1": 2.82,
+        "motosys-f45-apps-analytics-python-1": 101.0,
+        "motosys-f45-apps-core-nestjs-1": 214.7,
+        "motosys-f45-apps-notify-java-1": 308.2,
+        "motosys-f45-apps-rabbitmq-1": 136.1
+      }
+    },
+    {
+      "sample": 5,
+      "total_mib": 2039.92,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 317.9,
+        "motosys-f45-data-cassandra-1": 728.9,
+        "motosys-f45-data-postgres-1": 64.55,
+        "motosys-f45-data-redis-1": 8.12,
+        "motosys-f45-data-mongo-1": 155.1,
+        "motosys-f45-apps-proxy-1": 2.65,
+        "motosys-f45-apps-analytics-python-1": 103.7,
+        "motosys-f45-apps-core-nestjs-1": 214.7,
+        "motosys-f45-apps-notify-java-1": 308.2,
+        "motosys-f45-apps-rabbitmq-1": 136.1
+      }
+    },
+    {
+      "sample": 6,
+      "total_mib": 2074.61,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 321.9,
+        "motosys-f45-data-cassandra-1": 717.4,
+        "motosys-f45-data-postgres-1": 62.21,
+        "motosys-f45-data-redis-1": 8.11,
+        "motosys-f45-data-mongo-1": 155.1,
+        "motosys-f45-apps-proxy-1": 2.59,
+        "motosys-f45-apps-analytics-python-1": 101.0,
+        "motosys-f45-apps-core-nestjs-1": 214.8,
+        "motosys-f45-apps-notify-java-1": 308.2,
+        "motosys-f45-apps-rabbitmq-1": 183.3
+      }
+    },
+    {
+      "sample": 7,
+      "total_mib": 2027.33,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 321.6,
+        "motosys-f45-data-cassandra-1": 717.4,
+        "motosys-f45-data-postgres-1": 62.23,
+        "motosys-f45-data-redis-1": 8.11,
+        "motosys-f45-data-mongo-1": 155.1,
+        "motosys-f45-apps-proxy-1": 2.59,
+        "motosys-f45-apps-analytics-python-1": 101.1,
+        "motosys-f45-apps-core-nestjs-1": 214.8,
+        "motosys-f45-apps-notify-java-1": 308.3,
+        "motosys-f45-apps-rabbitmq-1": 136.1
+      }
+    },
+    {
+      "sample": 8,
+      "total_mib": 2030.29,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 322.2,
+        "motosys-f45-data-cassandra-1": 717.4,
+        "motosys-f45-data-postgres-1": 64.36,
+        "motosys-f45-data-redis-1": 8.08,
+        "motosys-f45-data-mongo-1": 155.1,
+        "motosys-f45-apps-proxy-1": 2.85,
+        "motosys-f45-apps-analytics-python-1": 101.1,
+        "motosys-f45-apps-core-nestjs-1": 214.8,
+        "motosys-f45-apps-notify-java-1": 308.3,
+        "motosys-f45-apps-rabbitmq-1": 136.1
+      }
+    },
+    {
+      "sample": 9,
+      "total_mib": 2029.86,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 321.7,
+        "motosys-f45-data-cassandra-1": 717.4,
+        "motosys-f45-data-postgres-1": 64.36,
+        "motosys-f45-data-redis-1": 8.11,
+        "motosys-f45-data-mongo-1": 155.1,
+        "motosys-f45-apps-proxy-1": 2.59,
+        "motosys-f45-apps-analytics-python-1": 101.1,
+        "motosys-f45-apps-core-nestjs-1": 214.8,
+        "motosys-f45-apps-notify-java-1": 308.3,
+        "motosys-f45-apps-rabbitmq-1": 136.4
+      }
+    },
+    {
+      "sample": 10,
+      "total_mib": 2078.37,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 340.2,
+        "motosys-f45-data-cassandra-1": 717.5,
+        "motosys-f45-data-postgres-1": 64.5,
+        "motosys-f45-data-redis-1": 8.11,
+        "motosys-f45-data-mongo-1": 155.1,
+        "motosys-f45-apps-proxy-1": 2.56,
+        "motosys-f45-apps-analytics-python-1": 101.1,
+        "motosys-f45-apps-core-nestjs-1": 214.8,
+        "motosys-f45-apps-notify-java-1": 308.3,
+        "motosys-f45-apps-rabbitmq-1": 166.2
+      }
+    },
+    {
+      "sample": 11,
+      "total_mib": 2032.99,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 324.4,
+        "motosys-f45-data-cassandra-1": 717.5,
+        "motosys-f45-data-postgres-1": 64.36,
+        "motosys-f45-data-redis-1": 8.11,
+        "motosys-f45-data-mongo-1": 155.4,
+        "motosys-f45-apps-proxy-1": 2.62,
+        "motosys-f45-apps-analytics-python-1": 101.1,
+        "motosys-f45-apps-core-nestjs-1": 214.8,
+        "motosys-f45-apps-notify-java-1": 308.3,
+        "motosys-f45-apps-rabbitmq-1": 136.4
+      }
+    },
+    {
+      "sample": 12,
+      "total_mib": 2035.14,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 329.0,
+        "motosys-f45-data-cassandra-1": 717.5,
+        "motosys-f45-data-postgres-1": 62.48,
+        "motosys-f45-data-redis-1": 8.12,
+        "motosys-f45-data-mongo-1": 155.1,
+        "motosys-f45-apps-proxy-1": 2.64,
+        "motosys-f45-apps-analytics-python-1": 101.1,
+        "motosys-f45-apps-core-nestjs-1": 214.8,
+        "motosys-f45-apps-notify-java-1": 308.3,
+        "motosys-f45-apps-rabbitmq-1": 136.1
+      }
+    },
+    {
+      "sample": 13,
+      "total_mib": 2030.65,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 324.5,
+        "motosys-f45-data-cassandra-1": 717.5,
+        "motosys-f45-data-postgres-1": 62.5,
+        "motosys-f45-data-redis-1": 8.12,
+        "motosys-f45-data-mongo-1": 155.1,
+        "motosys-f45-apps-proxy-1": 2.63,
+        "motosys-f45-apps-analytics-python-1": 101.1,
+        "motosys-f45-apps-core-nestjs-1": 214.8,
+        "motosys-f45-apps-notify-java-1": 308.3,
+        "motosys-f45-apps-rabbitmq-1": 136.1
+      }
+    },
+    {
+      "sample": 14,
+      "total_mib": 2029.11,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 322.8,
+        "motosys-f45-data-cassandra-1": 717.5,
+        "motosys-f45-data-postgres-1": 62.38,
+        "motosys-f45-data-redis-1": 8.07,
+        "motosys-f45-data-mongo-1": 155.1,
+        "motosys-f45-apps-proxy-1": 2.86,
+        "motosys-f45-apps-analytics-python-1": 101.1,
+        "motosys-f45-apps-core-nestjs-1": 214.8,
+        "motosys-f45-apps-notify-java-1": 308.4,
+        "motosys-f45-apps-rabbitmq-1": 136.1
+      }
+    },
+    {
+      "sample": 15,
+      "total_mib": 2035.21,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 326.0,
+        "motosys-f45-data-cassandra-1": 717.5,
+        "motosys-f45-data-postgres-1": 64.16,
+        "motosys-f45-data-redis-1": 8.18,
+        "motosys-f45-data-mongo-1": 155.2,
+        "motosys-f45-apps-proxy-1": 2.67,
+        "motosys-f45-apps-analytics-python-1": 102.1,
+        "motosys-f45-apps-core-nestjs-1": 214.8,
+        "motosys-f45-apps-notify-java-1": 308.5,
+        "motosys-f45-apps-rabbitmq-1": 136.1
+      }
+    },
+    {
+      "sample": 16,
+      "total_mib": 2034.18,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 325.8,
+        "motosys-f45-data-cassandra-1": 717.5,
+        "motosys-f45-data-postgres-1": 64.35,
+        "motosys-f45-data-redis-1": 8.11,
+        "motosys-f45-data-mongo-1": 155.2,
+        "motosys-f45-apps-proxy-1": 2.62,
+        "motosys-f45-apps-analytics-python-1": 101.2,
+        "motosys-f45-apps-core-nestjs-1": 214.8,
+        "motosys-f45-apps-notify-java-1": 308.5,
+        "motosys-f45-apps-rabbitmq-1": 136.1
+      }
+    },
+    {
+      "sample": 17,
+      "total_mib": 2038.05,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 329.1,
+        "motosys-f45-data-cassandra-1": 717.5,
+        "motosys-f45-data-postgres-1": 64.36,
+        "motosys-f45-data-redis-1": 8.11,
+        "motosys-f45-data-mongo-1": 155.2,
+        "motosys-f45-apps-proxy-1": 2.88,
+        "motosys-f45-apps-analytics-python-1": 101.4,
+        "motosys-f45-apps-core-nestjs-1": 214.8,
+        "motosys-f45-apps-notify-java-1": 308.6,
+        "motosys-f45-apps-rabbitmq-1": 136.1
+      }
+    },
+    {
+      "sample": 18,
+      "total_mib": 2033.5,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 327.1,
+        "motosys-f45-data-cassandra-1": 717.5,
+        "motosys-f45-data-postgres-1": 62.26,
+        "motosys-f45-data-redis-1": 8.11,
+        "motosys-f45-data-mongo-1": 155.2,
+        "motosys-f45-apps-proxy-1": 2.63,
+        "motosys-f45-apps-analytics-python-1": 101.2,
+        "motosys-f45-apps-core-nestjs-1": 214.8,
+        "motosys-f45-apps-notify-java-1": 308.6,
+        "motosys-f45-apps-rabbitmq-1": 136.1
+      }
+    },
+    {
+      "sample": 19,
+      "total_mib": 2036.2,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 329.1,
+        "motosys-f45-data-cassandra-1": 717.5,
+        "motosys-f45-data-postgres-1": 62.45,
+        "motosys-f45-data-redis-1": 8.11,
+        "motosys-f45-data-mongo-1": 155.2,
+        "motosys-f45-apps-proxy-1": 2.64,
+        "motosys-f45-apps-analytics-python-1": 101.2,
+        "motosys-f45-apps-core-nestjs-1": 214.8,
+        "motosys-f45-apps-notify-java-1": 308.6,
+        "motosys-f45-apps-rabbitmq-1": 136.6
+      }
+    },
+    {
+      "sample": 20,
+      "total_mib": 2032.64,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 326.3,
+        "motosys-f45-data-cassandra-1": 717.5,
+        "motosys-f45-data-postgres-1": 62.24,
+        "motosys-f45-data-redis-1": 8.07,
+        "motosys-f45-data-mongo-1": 155.2,
+        "motosys-f45-apps-proxy-1": 2.63,
+        "motosys-f45-apps-analytics-python-1": 101.2,
+        "motosys-f45-apps-core-nestjs-1": 214.8,
+        "motosys-f45-apps-notify-java-1": 308.6,
+        "motosys-f45-apps-rabbitmq-1": 136.1
+      }
+    },
+    {
+      "sample": 21,
+      "total_mib": 2038.53,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 330.0,
+        "motosys-f45-data-cassandra-1": 717.5,
+        "motosys-f45-data-postgres-1": 63.91,
+        "motosys-f45-data-redis-1": 8.12,
+        "motosys-f45-data-mongo-1": 155.2,
+        "motosys-f45-apps-proxy-1": 3.1,
+        "motosys-f45-apps-analytics-python-1": 101.2,
+        "motosys-f45-apps-core-nestjs-1": 214.8,
+        "motosys-f45-apps-notify-java-1": 308.6,
+        "motosys-f45-apps-rabbitmq-1": 136.1
+      }
+    },
+    {
+      "sample": 22,
+      "total_mib": 2035.03,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 326.0,
+        "motosys-f45-data-cassandra-1": 717.5,
+        "motosys-f45-data-postgres-1": 63.92,
+        "motosys-f45-data-redis-1": 8.12,
+        "motosys-f45-data-mongo-1": 155.2,
+        "motosys-f45-apps-proxy-1": 3.09,
+        "motosys-f45-apps-analytics-python-1": 101.2,
+        "motosys-f45-apps-core-nestjs-1": 214.9,
+        "motosys-f45-apps-notify-java-1": 309.0,
+        "motosys-f45-apps-rabbitmq-1": 136.1
+      }
+    },
+    {
+      "sample": 23,
+      "total_mib": 2034.53,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 327.5,
+        "motosys-f45-data-cassandra-1": 717.5,
+        "motosys-f45-data-postgres-1": 62.51,
+        "motosys-f45-data-redis-1": 8.08,
+        "motosys-f45-data-mongo-1": 155.2,
+        "motosys-f45-apps-proxy-1": 2.64,
+        "motosys-f45-apps-analytics-python-1": 101.2,
+        "motosys-f45-apps-core-nestjs-1": 214.8,
+        "motosys-f45-apps-notify-java-1": 309.0,
+        "motosys-f45-apps-rabbitmq-1": 136.1
+      }
+    },
+    {
+      "sample": 24,
+      "total_mib": 2148.63,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 327.2,
+        "motosys-f45-data-cassandra-1": 717.5,
+        "motosys-f45-data-postgres-1": 62.26,
+        "motosys-f45-data-redis-1": 8.11,
+        "motosys-f45-data-mongo-1": 269.4,
+        "motosys-f45-apps-proxy-1": 2.86,
+        "motosys-f45-apps-analytics-python-1": 101.2,
+        "motosys-f45-apps-core-nestjs-1": 214.9,
+        "motosys-f45-apps-notify-java-1": 309.0,
+        "motosys-f45-apps-rabbitmq-1": 136.2
+      }
+    },
+    {
+      "sample": 25,
+      "total_mib": 2055.4,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 344.3,
+        "motosys-f45-data-cassandra-1": 717.5,
+        "motosys-f45-data-postgres-1": 64.09,
+        "motosys-f45-data-redis-1": 10.48,
+        "motosys-f45-data-mongo-1": 155.2,
+        "motosys-f45-apps-proxy-1": 2.63,
+        "motosys-f45-apps-analytics-python-1": 101.2,
+        "motosys-f45-apps-core-nestjs-1": 214.9,
+        "motosys-f45-apps-notify-java-1": 309.0,
+        "motosys-f45-apps-rabbitmq-1": 136.1
+      }
+    },
+    {
+      "sample": 26,
+      "total_mib": 2038.31,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 328.8,
+        "motosys-f45-data-cassandra-1": 717.5,
+        "motosys-f45-data-postgres-1": 64.37,
+        "motosys-f45-data-redis-1": 8.07,
+        "motosys-f45-data-mongo-1": 155.2,
+        "motosys-f45-apps-proxy-1": 2.67,
+        "motosys-f45-apps-analytics-python-1": 101.5,
+        "motosys-f45-apps-core-nestjs-1": 214.9,
+        "motosys-f45-apps-notify-java-1": 309.1,
+        "motosys-f45-apps-rabbitmq-1": 136.2
+      }
+    },
+    {
+      "sample": 27,
+      "total_mib": 2037.03,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 327.7,
+        "motosys-f45-data-cassandra-1": 717.5,
+        "motosys-f45-data-postgres-1": 64.38,
+        "motosys-f45-data-redis-1": 8.12,
+        "motosys-f45-data-mongo-1": 155.2,
+        "motosys-f45-apps-proxy-1": 2.63,
+        "motosys-f45-apps-analytics-python-1": 101.3,
+        "motosys-f45-apps-core-nestjs-1": 214.9,
+        "motosys-f45-apps-notify-java-1": 309.2,
+        "motosys-f45-apps-rabbitmq-1": 136.1
+      }
+    },
+    {
+      "sample": 28,
+      "total_mib": 2049.7,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 331.0,
+        "motosys-f45-data-cassandra-1": 717.5,
+        "motosys-f45-data-postgres-1": 64.38,
+        "motosys-f45-data-redis-1": 8.11,
+        "motosys-f45-data-mongo-1": 155.2,
+        "motosys-f45-apps-proxy-1": 2.61,
+        "motosys-f45-apps-analytics-python-1": 110.7,
+        "motosys-f45-apps-core-nestjs-1": 214.9,
+        "motosys-f45-apps-notify-java-1": 309.2,
+        "motosys-f45-apps-rabbitmq-1": 136.1
+      }
+    },
+    {
+      "sample": 29,
+      "total_mib": 2039.69,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 329.6,
+        "motosys-f45-data-cassandra-1": 718.0,
+        "motosys-f45-data-postgres-1": 64.39,
+        "motosys-f45-data-redis-1": 8.07,
+        "motosys-f45-data-mongo-1": 155.3,
+        "motosys-f45-apps-proxy-1": 2.83,
+        "motosys-f45-apps-analytics-python-1": 101.3,
+        "motosys-f45-apps-core-nestjs-1": 214.9,
+        "motosys-f45-apps-notify-java-1": 309.2,
+        "motosys-f45-apps-rabbitmq-1": 136.1
+      }
+    },
+    {
+      "sample": 30,
+      "total_mib": 2040.87,
+      "containers": {
+        "motosys-f45-data-clickhouse-1": 330.7,
+        "motosys-f45-data-cassandra-1": 718.0,
+        "motosys-f45-data-postgres-1": 64.41,
+        "motosys-f45-data-redis-1": 8.13,
+        "motosys-f45-data-mongo-1": 155.2,
+        "motosys-f45-apps-proxy-1": 2.63,
+        "motosys-f45-apps-analytics-python-1": 101.3,
+        "motosys-f45-apps-core-nestjs-1": 214.9,
+        "motosys-f45-apps-notify-java-1": 309.2,
+        "motosys-f45-apps-rabbitmq-1": 136.4
+      }
+    }
+  ]
+}

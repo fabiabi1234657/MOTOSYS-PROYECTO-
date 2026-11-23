@@ -67,3 +67,5 @@ MOTOSYS-PROYECTO-/
 Consulta [la verificación de datos y núcleo HTTP](docs/fases-1b-2.md) para el arranque del servicio, las variables y las pruebas de estas fases.
 
 Consulta [el cierre del núcleo y el servicio Java](docs/fases-2b-3.md) para las fases 2B y 3.
+
+[Arranque HTTPS, analítica, respaldo y carga](docs/fases-4-5.md) para las fases 4 y 5.
