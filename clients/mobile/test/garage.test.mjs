@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { panels, prepare } from '../../shared/features.ts';
-import { loadBikeInsights, missingContext, operationValues, resultFields, shortcuts } from '../../shared/garage.ts';
+import { canAutoRun, optionLabel, loadBikeInsights, missingContext, operationValues, resultFields, shortcuts } from '../../shared/garage.ts';
 
 const motorcycleId = '12345678-1234-4321-9876-123456789abc';
 const workshopId = '02345678-1234-4321-9876-123456789abc';
@@ -45,4 +45,22 @@ test('results format currency, dates and labels without displaying vehicle scope
   assert.match(fields[1].value, /^12 (?:de )?ene\.? (?:de )?2026$/);
   assert.equal(fields[2].value, 'Mantenimiento');
   assert.equal(fields.at(-1).badge, 'MAINTENANCE');
+});
+
+test('automatic reads exclude writes, downloads and missing required fields', () => {
+  const lookup = (panelId, actionId) => panels.find(panel => panel.id === panelId).actions.find(action => action.id === actionId);
+  assert.equal(canAutoRun(lookup('vehicles', 'motos'), {}), true);
+  assert.equal(canAutoRun(lookup('vehicles', 'history'), {}), false);
+  assert.equal(canAutoRun(lookup('vehicles', 'history'), { motorcycleId }), true);
+  assert.equal(canAutoRun(lookup('analytics', 'monthly'), { motorcycleId }), false);
+  assert.equal(canAutoRun(lookup('vehicles', 'odo'), { motorcycleId }), false);
+  assert.equal(canAutoRun(lookup('documents', 'report-pdf'), { motorcycleId }), false);
+  assert.equal(canAutoRun(lookup('admin', 'audit'), {}), true);
+});
+
+test('Spanish option labels preserve unknown options', () => {
+  assert.equal(optionLabel('MAINTENANCE'), 'Mantenimiento');
+  assert.equal(optionLabel('workshop'), 'Taller');
+  assert.equal(optionLabel('WORKSHOP_ADMIN'), 'Administrador de taller');
+  assert.equal(optionLabel('otro'), 'otro');
 });

@@ -152,3 +152,26 @@ export function availability(settled: boolean) {
 export function predictionStatus(settled: boolean) {
   return settled ? 'Estimación no disponible' : 'Consultando…';
 }
+
+const optionLabels: Record<string, string> = {
+  MAINTENANCE: 'Mantenimiento',
+  EXPENSE: 'Gasto',
+  category: 'Categoría',
+  make: 'Marca',
+  workshop: 'Taller',
+  RIDER: 'Motociclista',
+  WORKSHOP_ADMIN: 'Administrador de taller',
+  SUPER_ADMIN: 'Superadministrador',
+};
+
+export function canAutoRun(action: Action, defaults: Record<string, string>): boolean {
+  if (action.method || action.binary) {
+    return false;
+  }
+  const fields = action.fields ?? [];
+  return fields.every(field => field.optional || fixedContext(field.name, defaults));
+}
+
+export function optionLabel(value: string) {
+  return optionLabels[value] ?? value;
+}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Alert, Animated, BackHandler, Easing, Image, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
 import { initialWindowMetrics, SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,7 +15,7 @@ import { ApiError, createApi, serverOrigin } from '../shared/api.ts';
 import type { Account, Api, Session } from '../shared/api.ts';
 import { accountPanels, prepare } from '../shared/features.ts';
 import type { Action, Field } from '../shared/features.ts';
-import { availability, catalogChoices, distance, fixedContext, loadBikeInsights, missingContext, operationValues, otherModel, pesos, readableDate, recommendationSource, resultFields, shortcuts, showRegistrationField, predictionStatus } from '../shared/garage.ts';
+import { canAutoRun, optionLabel, availability, catalogChoices, distance, fixedContext, loadBikeInsights, missingContext, operationValues, otherModel, pesos, readableDate, recommendationSource, resultFields, shortcuts, showRegistrationField, predictionStatus } from '../shared/garage.ts';
 import type { Bike, BikeInsights, CatalogModel, Workshop } from '../shared/garage.ts';
 import { replay } from './offline';
 import type { Pending } from './offline';
@@ -39,27 +39,71 @@ const sections: Record<string, { label: string; icon: string }> = {
   account: { label: 'Cuenta', icon: '○' },
 };
 
-function ScreenTransition({ children }: Readonly<{ children: React.ReactNode }>) {
-  const progress = useRef(new Animated.Value(1)).current;
+const MotionContext = createContext(false);
+
+function useMotionPreference() {
+  const [enabled, setEnabled] = useState(false);
   useEffect(() => {
-    let mounted = true;
+    let active = true;
+    let changed = false;
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', reduced => {
+      changed = true;
+      setEnabled(!reduced);
+    });
     void AccessibilityInfo.isReduceMotionEnabled().then(reduced => {
-      if (!mounted || reduced) {
-        return;
+      if (active && !changed) {
+        setEnabled(!reduced);
       }
-      progress.setValue(0);
-      Animated.timing(progress, {
-        toValue: 1, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: true,
-      }).start();
     }).catch(() => {});
     return () => {
-      mounted = false;
-      progress.stopAnimation();
+      active = false;
+      subscription.remove();
     };
-  }, [progress]);
+  }, []);
+  return enabled;
+}
+
+function ScreenTransition({ children }: Readonly<{ children: React.ReactNode }>) {
+  const motion = useContext(MotionContext);
+  const progress = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (!motion) {
+      progress.setValue(1);
+      return;
+    }
+    progress.setValue(0);
+    const transition = Animated.timing(progress, {
+      toValue: 1, duration: 200, easing: Easing.out(Easing.cubic), useNativeDriver: true,
+    });
+    transition.start();
+    return () => transition.stop();
+  }, [motion, progress]);
   return <Animated.View style={{ gap: 16, opacity: progress, transform: [
-    { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) },
+    { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) },
   ] }}>{children}</Animated.View>;
+}
+
+function ConnectionBadge({ online, queued }: Readonly<{ online: boolean; queued: number }>) {
+  const motion = useContext(MotionContext);
+  const opacity = useRef(new Animated.Value(1)).current;
+  const pending = queued > 0;
+  useEffect(() => {
+    opacity.setValue(1);
+    if (!pending || !motion) {
+      return;
+    }
+    const pulse = Animated.loop(Animated.sequence([
+      Animated.timing(opacity, { toValue: 0.83, duration: 850, useNativeDriver: true, isInteraction: false }),
+      Animated.timing(opacity, { toValue: 1, duration: 850, useNativeDriver: true, isInteraction: false }),
+    ]));
+    pulse.start();
+    return () => pulse.stop();
+  }, [motion, opacity, pending]);
+  return (
+    <Animated.Text accessibilityLiveRegion="polite" style={[s.connection, !online && s.offline, { opacity }]}>
+      {online ? 'En línea' : 'Sin conexión'}{pending ? ' · ' + queued + ' pendientes' : ''}
+    </Animated.Text>
+  );
 }
 
 function Row({ label, detail, selected, onPress }: Readonly<{
@@ -80,16 +124,36 @@ function Row({ label, detail, selected, onPress }: Readonly<{
 
 type ButtonProps = Readonly<{ label: string; onPress: () => void; prominent?: boolean; disabled?: boolean }>;
 function Button({ label, onPress, prominent = false, disabled = false }: ButtonProps) {
+  const motion = useContext(MotionContext);
+  const scale = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (!motion || disabled) {
+      scale.stopAnimation();
+      scale.setValue(1);
+    }
+    return () => scale.stopAnimation();
+  }, [disabled, motion, scale]);
+
+  function animate(toValue: number) {
+    if (motion) {
+      Animated.timing(scale, { toValue, duration: 110, useNativeDriver: true }).start();
+    }
+  }
+
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [s.button, prominent && s.primary, pressed && s.pressed, disabled && s.disabled]}
-    >
-      <Text style={s.buttonText}>{label}</Text>
-    </Pressable>
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled }}
+        disabled={disabled}
+        onPress={onPress}
+        onPressIn={() => animate(0.97)}
+        onPressOut={() => animate(1)}
+        style={({ pressed }) => [s.button, prominent && s.primary, pressed && s.pressed, disabled && s.disabled]}
+      >
+        <Text style={s.buttonText}>{label}</Text>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -162,9 +226,12 @@ async function completeOidcExchange(
 }
 
 export default function App() {
+  const motion = useMotionPreference();
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
-      <MobileApp />
+      <MotionContext.Provider value={motion}>
+        <MobileApp />
+      </MotionContext.Provider>
     </SafeAreaProvider>
   );
 }
@@ -537,9 +604,7 @@ function MobileApp() {
           <Image source={require('./assets/motosys.png')} style={s.mark} />
           <Text style={s.brand}>MotoSys</Text>
         </View>
-        <Text accessibilityLiveRegion="polite" style={[s.connection, !online && s.offline]}>
-          {online ? 'En línea' : 'Sin conexión'}{pending.length ? ' · ' + pending.length : ''}
-        </Text>
+        <ConnectionBadge online={online} queued={pending.length} />
       </View>
       <ScrollView key={[screen, choice, shortcut].join(':')} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
         <ScreenTransition>
@@ -622,7 +687,7 @@ function MobileApp() {
                   })}
                 />
               </View>
-              {result !== undefined && <Result value={result} />}
+              {result !== undefined && <ScreenTransition><Result value={result} /></ScreenTransition>}
             </>
           )}
           {screen !== 'account' && !action && (
@@ -729,7 +794,7 @@ function renderOperationField(
         <Text style={s.label}>{field.label}</Text>
         <View style={s.wrap}>
           {field.options.map(option => (
-            <Button key={option} label={option} prominent={option === value} onPress={() => onChangeValue(option)} />
+            <Button key={option} label={optionLabel(option)} prominent={option === value} onPress={() => onChangeValue(option)} />
           ))}
         </View>
         {error && <Text style={s.error}>{error}</Text>}
@@ -760,11 +825,12 @@ function renderOperationField(
 function CatalogPicker({ label, value, options, onPick }: Readonly<{
   label: string; value: string; options: string[]; onPick: (value: string) => void;
 }>) {
+  const motion = useContext(MotionContext);
   const [visible, setVisible] = useState(false);
   return (
     <>
       <Row label={label} detail={value || 'Seleccionar'} onPress={() => setVisible(true)} />
-      <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setVisible(false)}>
+      <Modal visible={visible} animationType={motion ? "slide" : "none"} presentationStyle="pageSheet" onRequestClose={() => setVisible(false)}>
         <View style={s.pickerShell}>
           <Button label="Cerrar" onPress={() => setVisible(false)} />
           <ScrollView contentContainerStyle={s.form}>
@@ -787,6 +853,18 @@ type OperationProps = Readonly<{
   onRun: (path: string, body?: object) => void;
 }>;
 
+function resolveAutoPath(action: Action, defaults: Record<string, string>) {
+  if (!canAutoRun(action, defaults) || missingContext(action, defaults)) {
+    return '';
+  }
+  const request = prepare(action, operationValues(action, defaults));
+  return Object.keys(request.errors).length ? '' : request.path;
+}
+
+function idleOperationLabel(autoRunnable: boolean, label: string) {
+  return autoRunnable ? 'Actualizar datos' : label;
+}
+
 function Operation({ action, catalog, defaults, busy, onRun }: OperationProps) {
   const [values, setValues] = useState(defaults);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -797,6 +875,17 @@ function Operation({ action, catalog, defaults, busy, onRun }: OperationProps) {
   const useCatalog = action.id === 'create' && catalog.length > 0;
   const choices = catalogChoices(catalog, catalogMake);
   const contextMessage = missingContext(action, values);
+  const autoRunnable = canAutoRun(action, defaults);
+  const autoPath = resolveAutoPath(action, defaults);
+  const autoRun = useRef(onRun);
+  useEffect(() => {
+    autoRun.current = onRun;
+  }, [onRun]);
+  useEffect(() => {
+    if (autoPath) {
+      autoRun.current(autoPath);
+    }
+  }, [autoPath]);
 
   function submit() {
     if (contextMessage) { return; }
@@ -853,7 +942,8 @@ function Operation({ action, catalog, defaults, busy, onRun }: OperationProps) {
         ),
       )}
       {!!contextMessage && <Text style={s.feedback}>{contextMessage}</Text>}
-      <Button label={busy ? 'Procesando…' : action.label} prominent disabled={busy || Boolean(contextMessage)} onPress={submit} />
+      <Button label={busy ? 'Procesando…' : idleOperationLabel(autoRunnable, action.label)}
+        prominent disabled={busy || Boolean(contextMessage)} onPress={submit} />
     </View>
   );
 }

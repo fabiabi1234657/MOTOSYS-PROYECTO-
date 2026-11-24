@@ -5,7 +5,7 @@ import { ApiError, createApi } from '../../shared/api.ts';
 import type { Account, Session } from '../../shared/api.ts';
 import { accountPanels, prepare } from '../../shared/features.ts';
 import type { Action, Field } from '../../shared/features.ts';
-import { availability, catalogChoices, distance, fixedContext, loadBikeInsights, missingContext, operationValues, otherModel, pesos, readableDate, recommendationSource, resultFields, shortcuts, showRegistrationField, predictionStatus } from '../../shared/garage.ts';
+import { canAutoRun, optionLabel, availability, catalogChoices, distance, fixedContext, loadBikeInsights, missingContext, operationValues, otherModel, pesos, readableDate, recommendationSource, resultFields, shortcuts, showRegistrationField, predictionStatus } from '../../shared/garage.ts';
 import type { Bike, BikeInsights, CatalogModel, Workshop } from '../../shared/garage.ts';
 import '@fontsource/inter/400.css';
 import '@fontsource/inter/600.css';
@@ -121,7 +121,7 @@ function renderFieldInput(
     return (
       <select {...inputProps} value={value} onChange={e => onChangeValue(e.target.value)}>
         <option value="">Seleccionar</option>
-        {field.options.map(option => <option key={option}>{option}</option>)}
+        {field.options.map(option => <option key={option} value={option}>{optionLabel(option)}</option>)}
       </select>
     );
   }
@@ -150,6 +150,31 @@ function Form({ action, defaults = {}, catalog = [], onRun }: FormProps) {
   const [catalogModel, setCatalogModel] = useState('');
   const useCatalog = action.id === 'create' && catalog.length > 0;
   const choices = catalogChoices(catalog, catalogMake);
+  const autoRunnable = canAutoRun(action, defaults);
+
+  useEffect(() => {
+    if (!autoRunnable || missingContext(action, defaults)) {
+      return;
+    }
+    const request = prepare(action, operationValues(action, defaults));
+    if (Object.keys(request.errors).length) {
+      return;
+    }
+    let active = true;
+    setBusy(true);
+    setNotice('');
+    void onRun(request.path, request.body)
+      .then(() => {
+        if (active) setNotice('Datos actualizados.');
+      })
+      .catch(error => {
+        if (active) setNotice(error instanceof Error ? error.message : 'La consulta falló.');
+      })
+      .finally(() => {
+        if (active) setBusy(false);
+      });
+    return () => { active = false; };
+  }, [action.id, autoRunnable]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -195,6 +220,9 @@ function Form({ action, defaults = {}, catalog = [], onRun }: FormProps) {
       setBusy(false);
     }
   }
+
+  const idleLabel = autoRunnable ? 'Actualizar datos' : action.label;
+  const submitLabel = busy ? 'Procesando…' : idleLabel;
 
   return (
     <form noValidate onSubmit={submit} className="form" aria-busy={busy}>
@@ -248,7 +276,9 @@ function Form({ action, defaults = {}, catalog = [], onRun }: FormProps) {
         );
       })}
       {missingContext(action, values) && <p className="status">{missingContext(action, values)}</p>}
-      <button type="submit" className="primary" disabled={busy || Boolean(missingContext(action, values))}>{busy ? 'Procesando…' : action.label}</button>
+      <button type="submit" className="primary" aria-busy={busy} disabled={busy || Boolean(missingContext(action, values))}>
+        {submitLabel}
+      </button>
       <p className="status" role="status" aria-live="polite">{notice}</p>
     </form>
   );
@@ -493,15 +523,19 @@ function App() {
           )}
         </header>
         {panel.id === 'vehicles' && (
-          <section className="bike-summary" aria-label="Mi Moto">
-            <h2>Mi Moto</h2>
+          <section className="bike-summary" aria-label="Mi Moto" key={bike}>
+            <div className="bike-summary-head">
+              <h2>Mi Moto</h2>
+              {activeBike && (
+                <p className="bike-identity"><strong>{activeBike.plate}</strong> {activeBike.make} {activeBike.model}</p>
+              )}
+            </div>
             {activeBike ? (
               <>
-                <p className="bike-identity"><strong>{activeBike.plate}</strong> · {activeBike.make} {activeBike.model}</p>
                 <dl className="bike-metrics">
                   <div><dt>Odómetro actual</dt><dd>{distance(activeBike.odometer_km)}</dd></div>
-                  <div><dt>Gasto acumulado</dt><dd>{insights?.tco ? pesos(insights.tco.tco_cop) : availability(Boolean(insights))}</dd></div>
-                  <div><dt>Próximo mantenimiento estimado</dt><dd>{insights?.recommendation
+                  <div aria-busy={!insights}><dt>Gasto acumulado</dt><dd>{insights?.tco ? pesos(insights.tco.tco_cop) : availability(Boolean(insights))}</dd></div>
+                  <div aria-busy={!insights}><dt>Próximo mantenimiento estimado</dt><dd>{insights?.recommendation
                     ? readableDate(insights.recommendation.next_maintenance_date) + ' · ' + pesos(insights.recommendation.expected_cost_cop)
                     : predictionStatus(Boolean(insights))}</dd>
                     {!!recommendationSource(insights?.recommendation) && <small>{recommendationSource(insights?.recommendation)}</small>}
@@ -525,7 +559,7 @@ function App() {
               </button>
             ))}
           </nav>
-          <section className="detail">
+          <section className="detail" key={[panel.id, action.id, shortcut].join(':')}>
             <h2 id="operation-title" tabIndex={-1}>{activeShortcut?.label ?? action.label}</h2>
             <Form
               key={[action.id, bike, workshop, shortcut].join(':')}
