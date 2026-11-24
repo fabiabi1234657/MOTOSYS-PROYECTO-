@@ -26,6 +26,36 @@
         }
       }
     },
+    "/analytics/catalog": {
+      "get": {
+        "summary": "Catalog",
+        "operationId": "catalog_analytics_catalog_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CatalogModel"
+                  },
+                  "type": "array",
+                  "title": "Response Catalog Analytics Catalog Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyCookie": []
+          }
+        ]
+      }
+    },
     "/analytics/motorcycles/{motorcycle_id}/tco": {
       "get": {
         "summary": "Tco",
@@ -372,6 +402,49 @@
         ],
         "title": "BenchmarkResult"
       },
+      "CatalogModel": {
+        "properties": {
+          "make": {
+            "type": "string",
+            "title": "Make"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "cc": {
+            "type": "integer",
+            "title": "Cc"
+          },
+          "segment": {
+            "type": "string",
+            "title": "Segment"
+          },
+          "oil_interval_km": {
+            "type": "integer",
+            "title": "Oil Interval Km"
+          },
+          "service_interval_days": {
+            "type": "integer",
+            "title": "Service Interval Days"
+          },
+          "expected_cost_cop": {
+            "type": "integer",
+            "title": "Expected Cost Cop"
+          }
+        },
+        "type": "object",
+        "required": [
+          "make",
+          "model",
+          "cc",
+          "segment",
+          "oil_interval_km",
+          "service_interval_days",
+          "expected_cost_cop"
+        ],
+        "title": "CatalogModel"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -455,6 +528,29 @@
           "random_state": {
             "type": "integer",
             "title": "Random State"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "ml_random_forest",
+              "catalog_baseline"
+            ],
+            "title": "Source"
+          },
+          "recommended_km_interval": {
+            "type": "integer",
+            "title": "Recommended Km Interval"
+          },
+          "model_reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Reference"
           }
         },
         "type": "object",
@@ -462,7 +558,10 @@
           "next_maintenance_date",
           "expected_cost_cop",
           "history_events",
-          "random_state"
+          "random_state",
+          "source",
+          "recommended_km_interval",
+          "model_reference"
         ],
         "title": "Recommendation"
       },

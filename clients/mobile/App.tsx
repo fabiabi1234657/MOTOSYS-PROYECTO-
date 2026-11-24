@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Alert, Animated, BackHandler, Easing, Image, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
+import { AccessibilityInfo, Alert, Animated, BackHandler, Easing, Image, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
+import { initialWindowMetrics, SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import * as SecureStore from 'expo-secure-store';
@@ -14,13 +15,14 @@ import { ApiError, createApi, serverOrigin } from '../shared/api.ts';
 import type { Account, Api, Session } from '../shared/api.ts';
 import { accountPanels, prepare } from '../shared/features.ts';
 import type { Action, Field } from '../shared/features.ts';
+import { availability, catalogChoices, distance, fixedContext, loadBikeInsights, missingContext, operationValues, otherModel, pesos, readableDate, recommendationSource, resultFields, shortcuts, showRegistrationField, predictionStatus } from '../shared/garage.ts';
+import type { Bike, BikeInsights, CatalogModel, Workshop } from '../shared/garage.ts';
 import { replay } from './offline';
 import type { Pending } from './offline';
 
 const ink = '#0F172A', white = '#F8FAFC', amber = '#F59E0B';
 const roles = { RIDER: 'Motociclista', WORKSHOP_ADMIN: 'Administración de taller', SUPER_ADMIN: 'Superadministración' };
 type NativeSession = { token: string; account: Account };
-type Bike = { id: string; plate: string; make: string };
 type Mode = 'login' | 'register' | 'recover' | 'reset' | 'oidc';
 type OidcGrant = { ticket: string; requiresMfa: boolean };
 const access: Record<Mode, string> = {
@@ -42,7 +44,9 @@ function ScreenTransition({ children }: Readonly<{ children: React.ReactNode }>)
   useEffect(() => {
     let mounted = true;
     void AccessibilityInfo.isReduceMotionEnabled().then(reduced => {
-      if (!mounted || reduced) return;
+      if (!mounted || reduced) {
+        return;
+      }
       progress.setValue(0);
       Animated.timing(progress, {
         toValue: 1, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: true,
@@ -158,6 +162,15 @@ async function completeOidcExchange(
 }
 
 export default function App() {
+  return (
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+      <MobileApp />
+    </SafeAreaProvider>
+  );
+}
+
+function MobileApp() {
+  const insets = useSafeAreaInsets();
   const [fonts, fontError] = useFonts({ Inter_400Regular, Inter_700Bold, JetBrainsMono_400Regular });
   const [base, setBase] = useState('');
   const [originText, setOriginText] = useState('');
@@ -174,6 +187,12 @@ export default function App() {
   const [showTotp, setShowTotp] = useState(false);
   const [bikes, setBikes] = useState<Bike[]>([]);
   const [bike, setBike] = useState('');
+  const [catalog, setCatalog] = useState<CatalogModel[]>([]);
+  const [workshops, setWorkshops] = useState<Workshop[]>([]);
+  const [workshop, setWorkshop] = useState('');
+  const [shortcut, setShortcut] = useState('');
+  const [insights, setInsights] = useState<BikeInsights>();
+  const [insightRevision, setInsightRevision] = useState(0);
   const [pending, setPending] = useState<Pending[]>([]);
   const [result, setResult] = useState<unknown>();
   const lock = useRef(false);
@@ -189,18 +208,24 @@ export default function App() {
     let alive = true;
     AsyncStorage.getItem(prefs)
       .then(async saved => {
-        if (!saved || !alive) return;
+        if (!saved || !alive) {
+          return;
+        }
         setBase(saved);
         setOriginText(saved);
         const stored = await SecureStore.getItemAsync('motosys.session');
         if (stored && alive) {
           const value = JSON.parse(stored) as NativeSession & { base: string };
-          if (value.base !== saved) return;
+          if (value.base !== saved) {
+            return;
+          }
           try {
             const current = await createApi(saved, value.token)<Session>('/api/core/auth/session');
             setSession({ token: value.token, account: current.account });
           } catch (error) {
-            if (!(error instanceof ApiError)) setSession(value);
+            if (!(error instanceof ApiError)) {
+              setSession(value);
+            }
           }
         }
       })
@@ -226,7 +251,9 @@ export default function App() {
       }
     }
     void Linking.getInitialURL().then(url => {
-      if (url) receive(url);
+      if (url) {
+        receive(url);
+      }
     });
     const listener = Linking.addEventListener('url', event => receive(event.url));
     return () => listener.remove();
@@ -245,30 +272,43 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (!queueKey) return;
+    if (!queueKey) {
+      return;
+    }
     let alive = true;
     enqueue(async () => {
       const saved = JSON.parse((await AsyncStorage.getItem(queueKey)) ?? '[]') as Pending[];
-      if (alive) setPending(saved);
+      if (alive) {
+        setPending(saved);
+      }
       if (online) {
         await replay(saved, api, async rows => {
           await AsyncStorage.setItem(queueKey, JSON.stringify(rows));
-          if (alive) setPending(rows);
+          if (alive) {
+            setPending(rows);
+          }
         });
+        if (alive && saved.length) {
+          setInsightRevision(previous => previous + 1);
+        }
       }
     }).catch(() => {
-      if (alive) setStatus('No se pudo sincronizar la cola.');
+      if (alive) {
+        setStatus('No se pudo sincronizar la cola.');
+      }
     });
     if (online) {
       void refreshBikes().catch(error => {
-        if (alive) setStatus((error as Error).message);
+        if (alive) {
+          setStatus((error as Error).message);
+        }
       });
     } else {
       AsyncStorage.getItem(queueKey + '.vehicles').then(raw => {
         if (alive && raw) {
           const rows = JSON.parse(raw) as Bike[];
           setBikes(rows);
-          setBike(rows[0]?.id ?? '');
+          setBike(previous => rows.some(item => item.id === previous) ? previous : rows[0]?.id ?? '');
         }
       });
     }
@@ -277,8 +317,44 @@ export default function App() {
     };
   }, [queueKey, online]);
 
+  useEffect(() => {
+    if (!(session && online)) {
+      setCatalog([]);
+      return;
+    }
+    let current = true;
+    void api<CatalogModel[]>('/api/analytics/catalog')
+      .then(rows => { if (current) { setCatalog(rows); } })
+      .catch(() => {});
+    return () => { current = false; };
+  }, [session, online]);
+
+  async function refreshWorkshops(preferred?: string) {
+    const rows = await api<Workshop[]>('/api/core/workshops');
+    setWorkshops(rows);
+    setWorkshop(current => preferred || (rows.some(row => row.id === current) ? current : rows[0]?.id ?? ''));
+  }
+
+  useEffect(() => {
+    if (session && online && session.account.role !== 'RIDER') {
+      void refreshWorkshops(session.account.workshopId).catch((error: Error) => setStatus(error.message));
+    }
+  }, [session, online]);
+
+  useEffect(() => {
+    setInsights(undefined);
+    if (!session || !online || !bike) {
+      return;
+    }
+    let current = true;
+    void loadBikeInsights(api, bike).then(value => { if (current) setInsights(value); });
+    return () => { current = false; };
+  }, [session, online, bike, insightRevision]);
+
   async function guarded(fn: () => Promise<void>) {
-    if (lock.current) return;
+    if (lock.current) {
+      return;
+    }
     lock.current = true;
     setBusy(true);
     setStatus('');
@@ -303,7 +379,9 @@ export default function App() {
 
   async function startFederated(provider: string) {
     await guarded(async () => {
-      if (!base) throw new Error('Guarda primero la URL HTTPS.');
+      if (!base) {
+        throw new Error('Guarda primero la URL HTTPS.');
+      }
       const bytes = await Crypto.getRandomBytesAsync(32);
       const verifier = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
       const challenge = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, verifier);
@@ -313,9 +391,15 @@ export default function App() {
   }
 
   async function authenticateLocal(localMode: Exclude<Mode, 'oidc'>) {
-    if (localMode !== 'reset' && !auth.email?.trim()) throw new Error('Escribe el correo electrónico.');
-    if (localMode !== 'recover' && !auth.password) throw new Error('Escribe la contraseña.');
-    if (!base) throw new Error('Guarda primero la URL HTTPS.');
+    if (localMode !== 'reset' && !auth.email?.trim()) {
+      throw new Error('Escribe el correo electrónico.');
+    }
+    if (localMode !== 'recover' && !auth.password) {
+      throw new Error('Escribe la contraseña.');
+    }
+    if (!base) {
+      throw new Error('Guarda primero la URL HTTPS.');
+    }
     const { route, payload } = buildLocalAuthRequest(localMode, auth);
     const value = await api<Session>('/api/core/auth/' + route, 'POST', payload);
     if (localMode === 'login' && value.accessToken) {
@@ -352,6 +436,9 @@ export default function App() {
       await SecureStore.deleteItemAsync('motosys.session');
       setSession(undefined);
       setBikes([]);
+      setBike('');
+      setWorkshops([]);
+      setWorkshop('');
       setPending([]);
       setResult(undefined);
       setMode('login');
@@ -359,7 +446,8 @@ export default function App() {
     });
   }
 
-  function navigate(next: string, action = '') {
+  function navigate(next: string, action = '', preset = '') {
+    setShortcut(preset);
     setScreen(next);
     setChoice(action);
     setResult(undefined);
@@ -367,9 +455,13 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (!session || (!choice && screen === 'vehicles')) return;
+    if (!session || (!choice && screen === 'vehicles')) {
+      return;
+    }
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (lock.current) return true;
+      if (lock.current) {
+        return true;
+      }
       navigate(choice ? screen : 'vehicles');
       return true;
     });
@@ -382,8 +474,8 @@ export default function App() {
 
   if (!session) {
     return (
-      <KeyboardAvoidingView style={s.app} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={s.shell} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView style={[s.app, { paddingTop: insets.top, paddingLeft: insets.left, paddingRight: insets.right }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={[s.shell, { paddingBottom: 24 + insets.bottom }]} keyboardShouldPersistTaps="handled">
           <View style={s.logoLine}>
             <Image source={require('./assets/motosys.png')} style={s.logo} />
             <Text style={s.brand}>MotoSys</Text>
@@ -431,12 +523,14 @@ export default function App() {
   const panels = accountPanels(session.account);
   const panel = panels.find(item => item.id === screen) ?? panels[0];
   const action = panel.actions.find(item => item.id === choice);
+  const activeShortcut = shortcuts.find(item => item.id === shortcut);
   const activeBike = bikes.find(item => item.id === bike);
   const needsBike = action?.fields?.some(field => field.name === 'motorcycleId');
-  const garageShortcut = panel.actions.find(item => item.id === (activeBike ? 'event' : 'create'));
+  const showWorkshop = panel.id === 'workshop' || panel.id === 'admin';
+  const canRegisterBike = panel.actions.some(item => item.id === 'create');
 
   return (
-    <KeyboardAvoidingView style={s.app} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={[s.app, { paddingTop: insets.top, paddingLeft: insets.left, paddingRight: insets.right }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <StatusBar barStyle="dark-content" />
       <View style={s.header}>
         <View style={s.logoLine}>
@@ -447,9 +541,9 @@ export default function App() {
           {online ? 'En línea' : 'Sin conexión'}{pending.length ? ' · ' + pending.length : ''}
         </Text>
       </View>
-      <ScrollView key={screen + ':' + choice} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+      <ScrollView key={[screen, choice, shortcut].join(':')} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
         <ScreenTransition>
-          {screen === 'account' ? (
+          {screen === 'account' && (
             <>
               <Text style={s.title} accessibilityRole="header">Mi cuenta</Text>
               <View style={s.card}>
@@ -461,21 +555,29 @@ export default function App() {
                 <Button label="Cerrar sesión" disabled={busy} onPress={() => void handleLogout()} />
               </View>
             </>
-          ) : action ? (
+          )}
+          {screen !== 'account' && action && (
             <>
-              <Row label={'Volver a ' + sections[panel.id].label} onPress={() => { if (!lock.current) navigate(panel.id); }} />
-              <Text style={s.title} accessibilityRole="header">{action.label}</Text>
+              <Row label={'Volver a ' + sections[panel.id].label} onPress={() => { if (!lock.current) { navigate(panel.id); } }} />
+              <Text style={s.title} accessibilityRole="header">{activeShortcut?.label ?? action.label}</Text>
               {needsBike && bikes.length > 0 && (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
                   {bikes.map(item => <Row key={item.id} label={item.plate} selected={bike === item.id}
                     onPress={() => { if (!lock.current) { setBike(item.id); setResult(undefined); setStatus(''); } }} />)}
                 </ScrollView>
               )}
+              {showWorkshop && workshops.length > 0 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
+                  {workshops.map(item => <Row key={item.id} label={item.name} selected={workshop === item.id}
+                    onPress={() => { if (!lock.current) { setWorkshop(item.id); setResult(undefined); } }} />)}
+                </ScrollView>
+              )}
               <View style={s.card}>
                 <Operation
-                  key={action.id + ':' + bike}
+                  key={[action.id, bike, workshop, shortcut].join(':')}
                   action={action}
-                  defaults={{ motorcycleId: bike, workshopId: session.account.workshopId ?? '', occurredAt: new Date().toISOString().slice(0, 10) }}
+                  catalog={catalog}
+                  defaults={{ motorcycleId: bike, workshopId: workshop, occurredAt: new Date().toISOString().slice(0, 10), ...activeShortcut?.values }}
                   busy={busy}
                   onRun={(path, body) => guarded(async () => {
                     if (action.event && body) {
@@ -491,39 +593,48 @@ export default function App() {
                             setPending(rows);
                           })
                           : next;
+                        setInsightRevision(previous => previous + 1);
                         setStatus(remaining.some(item => item.key === entry.key) ? 'Registro pendiente de sincronización.' : 'Registro sincronizado.');
                       });
                       return;
                     }
-                    if (!online) throw new Error('Esta operación requiere conexión.');
+                    if (!online) {
+                      throw new Error('Esta operación requiere conexión.');
+                    }
                     if (action.binary) {
                       const file = await FileSystem.downloadAsync(base + path, (FileSystem.cacheDirectory ?? '') + action.binary, {
                         headers: { Authorization: 'Bearer ' + session.token },
                       });
-                      if (file.status !== 200) throw new Error('No se pudo descargar el archivo (' + file.status + ').');
+                      if (file.status !== 200) {
+                        throw new Error('No se pudo descargar el archivo (' + file.status + ').');
+                      }
                       await Sharing.shareAsync(file.uri);
                     } else {
                       setResult(await api(path, action.method, body));
                     }
-                    if (['create', 'edit', 'delete', 'odo'].includes(action.id)) await refreshBikes();
+                    if (action.id === 'shop-add') {
+                      await refreshWorkshops();
+                    }
+                    if (['create', 'edit', 'delete', 'odo'].includes(action.id)) {
+                      await refreshBikes();
+                    }
                     setStatus('Operación completada.');
                   })}
                 />
               </View>
               {result !== undefined && <Result value={result} />}
             </>
-          ) : (
+          )}
+          {screen !== 'account' && !action && (
             <>
               <Text style={s.title} accessibilityRole="header">{panel.id === 'vehicles' ? 'Mi garaje' : panel.label}</Text>
               {panel.id === 'vehicles' && (
-                <View style={s.garage}>
-                  <Text style={s.garageCaption}>MOTOCICLETA ACTIVA</Text>
-                  <Text style={s.garagePlate}>{activeBike?.plate ?? 'Sin motocicletas'}</Text>
-                  {activeBike && <Text style={s.garageCaption}>{activeBike.make}</Text>}
-                  {garageShortcut && (
-                    <Button label={activeBike ? 'Registrar actividad' : garageShortcut.label}
-                      prominent onPress={() => navigate(panel.id, garageShortcut.id)} />
-                  )}
+                <GarageSummary bike={activeBike} insights={insights} online={online}
+                  onRegister={canRegisterBike ? () => navigate(panel.id, 'create') : undefined} />
+              )}
+              {panel.id === 'vehicles' && activeBike && (
+                <View style={s.wrap}>
+                  {shortcuts.map(item => <Button key={item.id} label={item.label} onPress={() => navigate(panel.id, item.action, item.id)} />)}
                 </View>
               )}
               {panel.id === 'vehicles' && bikes.length > 1 && (
@@ -540,7 +651,7 @@ export default function App() {
           {!!status && <Text style={s.feedback} accessibilityLiveRegion="polite">{status}</Text>}
         </ScreenTransition>
       </ScrollView>
-      <View style={s.tabBar} accessibilityRole="tablist">
+      <View style={[s.tabBar, { paddingBottom: 8 + insets.bottom }]} accessibilityRole="tablist">
         {[...panels.map(item => item.id), 'account'].map(id => (
           <Pressable key={id} accessibilityRole="tab" accessibilityState={{ selected: screen === id, disabled: busy }}
             disabled={busy} onPress={() => navigate(id)} style={({ pressed }) => [s.tab, pressed && s.pressed]}>
@@ -555,28 +666,53 @@ export default function App() {
   );
 }
 
-const resultLabels: Record<string, string> = {
-  id: 'Identificador', plate: 'Placa', make: 'Marca', model: 'Modelo', year: 'Año',
-  kilometers: 'Kilómetros', category: 'Categoría', amount: 'Importe', kind: 'Tipo',
-  occurred_at: 'Fecha', motorcycle_id: 'Motocicleta', title: 'Título', message: 'Mensaje',
-};
+function GarageSummary({ bike, insights, online, onRegister }: Readonly<{
+  bike?: Bike; insights?: BikeInsights; online: boolean; onRegister?: () => void;
+}>) {
+  const settled = Boolean(insights) || !online;
+  const prediction = insights?.recommendation;
+  const source = recommendationSource(prediction);
+  return (
+    <View style={s.garage}>
+      <Text style={s.garageCaption}>MI MOTO</Text>
+      <Text style={s.garagePlate}>{bike?.plate ?? 'Sin motocicletas'}</Text>
+      {!bike && onRegister && <Button label="Registrar motocicleta" prominent onPress={onRegister} />}
+      {bike && (
+        <>
+          <Text style={s.garageCaption}>{bike.make} {bike.model}</Text>
+          <View style={s.garageMetrics}>
+            <Text style={s.garageCaption}>Odómetro actual</Text>
+            <Text style={s.garageValue}>{bike.odometer_km == null ? 'No disponible' : distance(bike.odometer_km)}</Text>
+            <Text style={s.garageCaption}>Gasto acumulado</Text>
+            <Text style={s.garageValue}>{insights?.tco ? pesos(insights.tco.tco_cop) : availability(settled)}</Text>
+            <Text style={s.garageCaption}>Próximo mantenimiento estimado</Text>
+            <Text style={s.garageValue}>{prediction
+              ? readableDate(prediction.next_maintenance_date) + ' · ' + pesos(prediction.expected_cost_cop)
+              : predictionStatus(settled)}</Text>
+            {!!source && <Text style={s.garageCaption}>{source}</Text>}
+          </View>
+        </>
+      )}
+    </View>
+  );
+}
 
 function Result({ value }: Readonly<{ value: unknown }>) {
-  if (Array.isArray(value)) {
-    if (!value.length) return <Text style={s.feedback}>Sin registros.</Text>;
-    return <View style={s.form}>{value.map((item, i) => (
-      <View key={i} style={s.card}><Result value={item} /></View>
-    ))}</View>;
+  const rows = Array.isArray(value) ? value : [value];
+  if (!rows.length || value == null) {
+    return <Text style={s.feedback}>Sin registros.</Text>;
   }
-  if (value && typeof value === 'object') {
-    return <View style={s.form}>{Object.entries(value).map(([key, item]) => (
-      <View key={key} style={s.resultField}>
-        <Text style={s.muted}>{resultLabels[key] ?? key.replaceAll('_', ' ').replace(/([a-z])([A-Z])/g, '$1 $2')}</Text>
-        <Result value={item} />
-      </View>
-    ))}</View>;
-  }
-  return <Text selectable style={s.resultValue}>{value == null ? '—' : typeof value === 'boolean' ? (value ? 'Sí' : 'No') : String(value)}</Text>;
+  return <View style={s.form}>{rows.map((item, index) => (
+    <View key={index} style={s.card}>
+      {resultFields(item).map(field => (
+        <View key={field.key} style={s.resultField}>
+          {!!field.label && <Text style={s.muted}>{field.label}</Text>}
+          <Text selectable={!field.badge}
+            style={[s.resultValue, field.badge && s.badge, field.badge === 'EXPENSE' && s.expenseBadge]}>{field.value}</Text>
+        </View>
+      ))}
+    </View>
+  ))}</View>;
 }
 
 function renderOperationField(
@@ -621,26 +757,58 @@ function renderOperationField(
   );
 }
 
+function CatalogPicker({ label, value, options, onPick }: Readonly<{
+  label: string; value: string; options: string[]; onPick: (value: string) => void;
+}>) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <>
+      <Row label={label} detail={value || 'Seleccionar'} onPress={() => setVisible(true)} />
+      <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setVisible(false)}>
+        <View style={s.pickerShell}>
+          <Button label="Cerrar" onPress={() => setVisible(false)} />
+          <ScrollView contentContainerStyle={s.form}>
+            {options.map(option => <Row key={option} label={option} selected={option === value} onPress={() => {
+              onPick(option);
+              setVisible(false);
+            }} />)}
+          </ScrollView>
+        </View>
+      </Modal>
+    </>
+  );
+}
+
 type OperationProps = Readonly<{
   action: Action;
+  catalog: CatalogModel[];
   defaults: Record<string, string>;
   busy: boolean;
   onRun: (path: string, body?: object) => void;
 }>;
 
-function Operation({ action, defaults, busy, onRun }: OperationProps) {
+function Operation({ action, catalog, defaults, busy, onRun }: OperationProps) {
   const [values, setValues] = useState(defaults);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [file, setFile] = useState<Picker.DocumentPickerAsset>();
 
+  const [catalogMake, setCatalogMake] = useState('');
+  const [catalogModel, setCatalogModel] = useState('');
+  const useCatalog = action.id === 'create' && catalog.length > 0;
+  const choices = catalogChoices(catalog, catalogMake);
+  const contextMessage = missingContext(action, values);
+
   function submit() {
+    if (contextMessage) { return; }
     const multipart = file ? new FormData() : undefined;
     if (file && multipart) {
       multipart.append('file', { uri: file.uri, type: file.mimeType ?? 'application/octet-stream', name: file.name } as unknown as Blob);
     }
-    const request = prepare(action, values, multipart);
+    const request = prepare(action, operationValues(action, values), multipart);
     setErrors(request.errors);
-    if (Object.keys(request.errors).length) return;
+    if (Object.keys(request.errors).length) {
+      return;
+    }
     if (action.method === 'DELETE') {
       Alert.alert('Eliminar motocicleta', '¿Confirmas esta operación?', [
         { text: 'Cancelar' },
@@ -653,7 +821,22 @@ function Operation({ action, defaults, busy, onRun }: OperationProps) {
 
   return (
     <View style={s.form}>
-      {action.fields?.map(field =>
+      {useCatalog && <View style={s.form}>
+        <CatalogPicker label="Marca" value={catalogMake} options={choices.makes} onPick={make => {
+          setCatalogMake(make);
+          setCatalogModel('');
+          setValues(previous => ({ ...previous, make: make === otherModel ? '' : make, model: '' }));
+        }} />
+        {!!catalogMake && catalogMake !== otherModel && (
+          <CatalogPicker label="Modelo" value={catalogModel} options={choices.models} onPick={model => {
+            setCatalogModel(model);
+            setValues(previous => ({ ...previous, model: model === otherModel ? '' : model }));
+          }} />
+        )}
+        {(errors.make || errors.model) && <Text style={s.error}>{errors.make ?? errors.model}</Text>}
+      </View>}
+      {action.fields?.filter(field => !fixedContext(field.name, defaults)
+        && (!useCatalog || showRegistrationField(field.name, catalogMake, catalogModel))).map(field =>
         renderOperationField(
           field,
           values[field.name] ?? '',
@@ -662,18 +845,21 @@ function Operation({ action, defaults, busy, onRun }: OperationProps) {
           next => setValues({ ...values, [field.name]: next }),
           () => {
             void Picker.getDocumentAsync().then(picked => {
-              if (!picked.canceled) setFile(picked.assets[0]);
+              if (!picked.canceled) {
+                setFile(picked.assets[0]);
+              }
             });
           },
         ),
       )}
-      <Button label={busy ? 'Procesando…' : action.label} prominent disabled={busy} onPress={submit} />
+      {!!contextMessage && <Text style={s.feedback}>{contextMessage}</Text>}
+      <Button label={busy ? 'Procesando…' : action.label} prominent disabled={busy || Boolean(contextMessage)} onPress={submit} />
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  app: { flex: 1, backgroundColor: '#F7F5EF', paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 54 },
+  app: { flex: 1, backgroundColor: '#F7F5EF' },
   shell: { padding: 24, gap: 14, flexGrow: 1 },
   header: { minHeight: 64, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   content: { padding: 20, paddingBottom: 32 },
@@ -682,6 +868,10 @@ const s = StyleSheet.create({
   offline: { color: '#74410C', backgroundColor: '#FBE8C7' },
   garage: { backgroundColor: ink, borderRadius: 24, padding: 22, gap: 12 },
   garageCaption: { color: '#CCDAEC', fontFamily: 'Inter_400Regular', fontSize: 13 },
+  garageMetrics: { gap: 5, paddingTop: 8 },
+  garageValue: { color: white, fontFamily: 'Inter_700Bold', marginBottom: 7, fontSize: 16 },
+  badge: { alignSelf: 'flex-start', color: '#215447', backgroundColor: '#DEEBE4', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 },
+  expenseBadge: { color: '#74410C', backgroundColor: '#FBE8C7' },
   garagePlate: { color: white, fontFamily: 'Inter_700Bold', fontSize: 32 },
   row: { minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, backgroundColor: '#FFF' },
   rowCopy: { flexShrink: 1 },
@@ -692,13 +882,14 @@ const s = StyleSheet.create({
   muted: { color: '#4B5563', fontFamily: 'Inter_400Regular', fontSize: 13 },
   pressed: { opacity: 0.72 },
   feedback: { padding: 12, borderRadius: 12, color: ink, backgroundColor: '#EBE8DE' },
-  tabBar: { backgroundColor: '#FFF', borderTopWidth: 1, borderColor: '#E5E1D7', flexDirection: 'row', paddingTop: 7, paddingBottom: Platform.OS === 'android' ? 28 : 30, paddingHorizontal: 6 },
+  tabBar: { backgroundColor: '#FFF', borderTopWidth: 1, borderColor: '#E5E1D7', flexDirection: 'row', paddingTop: 7, paddingHorizontal: 6 },
   tab: { flex: 1, alignItems: 'center', minHeight: 50, gap: 3 },
   tabIcon: { minWidth: 38, height: 29, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   activeTab: { backgroundColor: '#F9E6BD' },
   icon: { color: ink, fontSize: 19, lineHeight: 23 },
   tabLabel: { color: '#4B5563', fontSize: 11 },
   activeTabLabel: { color: ink, fontFamily: 'Inter_700Bold' },
+  pickerShell: { flex: 1, gap: 10, padding: 20, paddingTop: 48, paddingBottom: 48, backgroundColor: '#F7F5EF' },
   resultField: { gap: 3 },
   resultValue: { color: ink, fontFamily: 'Inter_400Regular', fontSize: 15 },
   brand: { color: ink, fontSize: 28, fontFamily: 'Inter_700Bold' },

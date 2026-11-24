@@ -19,3 +19,15 @@ h1,h2,p{margin:0} h1{font-weight:700;letter-spacing:-.055em;font-size:clamp(2.1r
 .workspace{display:grid;grid-template-columns:minmax(160px,15rem) minmax(0,1fr);gap:1rem;align-items:start}.actions button[aria-pressed=true]{background:#fde7b4}.actions button:hover{background:#f0e8d5}.detail{padding:clamp(1rem,3vw,2rem);background:#fff;border:1px solid var(--line);border-radius:12px}.detail h2{margin-bottom:1rem}.results{display:grid;gap:.75rem;margin-top:1rem}.results dl,.empty{padding:1rem;border:1px solid var(--line);border-radius:8px}.results dl div{display:grid;grid-template-columns:minmax(7rem,1fr) 2fr;gap:.5rem;padding:.25rem 0}.results dt{font-size:.88rem;color:#334155}.results dd{overflow-wrap:anywhere}.skip{position:absolute;left:1rem;top:-5rem;background:white;padding:1rem}.skip:focus{top:1rem}.loading{padding:2rem}
 @media(max-width:760px){.dashboard,.auth-shell,.workspace{grid-template-columns:1fr}.sidebar{position:static;height:auto;gap:.8rem;padding:1rem}.sidebar nav,.actions{display:flex;overflow-x:auto}.sidebar nav button,.actions button{white-space:nowrap}.sidebar-base{display:flex;align-items:center;justify-content:space-between}.showcase{display:none}.mobile-brand{display:block;margin-bottom:2rem}}
 
+
+.bike-summary { background: #0f172a; color: #f8fafc; border-radius: 20px; padding: clamp(1rem, 3vw, 1.75rem); margin: 1rem 0; }
+.bike-summary h2 { margin: 0 0 .55rem; }
+.bike-identity { margin: 0 0 1rem; }
+.bike-identity strong { color: #fbbf24; }
+.bike-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 165px), 1fr)); gap: 1rem; margin: 0 0 1rem; }
+.bike-metrics dt { color: #cbd5e1; font-size: .875rem; }
+.bike-metrics dd { margin: .3rem 0 0; font-weight: 700; }
+.bike-shortcuts { display: flex; flex-wrap: wrap; gap: .55rem; }
+.bike-shortcuts button { background: #fbbf24; color: #0f172a; min-height: 44px; padding: .5rem .85rem; }
+.results .result-badge { display: inline-block; color: #215447; background: #deebe4; border-radius: 1rem; padding: .15rem .5rem; }
+.results .result-badge.expense { color: #74410c; background: #fbe8c7; }
