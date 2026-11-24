@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
-import { Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { AccessibilityInfo, Alert, Animated, BackHandler, Easing, Image, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
+import { initialWindowMetrics, SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import * as SecureStore from 'expo-secure-store';
@@ -14,13 +15,14 @@ import { ApiError, createApi, serverOrigin } from '../shared/api.ts';
 import type { Account, Api, Session } from '../shared/api.ts';
 import { accountPanels, prepare } from '../shared/features.ts';
 import type { Action, Field } from '../shared/features.ts';
+import { canAutoRun, optionLabel, availability, catalogChoices, distance, fixedContext, loadBikeInsights, missingContext, operationValues, otherModel, pesos, readableDate, recommendationSource, resultFields, shortcuts, showRegistrationField, predictionStatus } from '../shared/garage.ts';
+import type { Bike, BikeInsights, CatalogModel, Workshop } from '../shared/garage.ts';
 import { replay } from './offline';
 import type { Pending } from './offline';
 
 const ink = '#0F172A', white = '#F8FAFC', amber = '#F59E0B';
 const roles = { RIDER: 'Motociclista', WORKSHOP_ADMIN: 'Administración de taller', SUPER_ADMIN: 'Superadministración' };
 type NativeSession = { token: string; account: Account };
-type Bike = { id: string; plate: string; make: string };
 type Mode = 'login' | 'register' | 'recover' | 'reset' | 'oidc';
 type OidcGrant = { ticket: string; requiresMfa: boolean };
 const access: Record<Mode, string> = {
@@ -28,19 +30,130 @@ const access: Record<Mode, string> = {
   reset: 'Cambiar contraseña', oidc: 'Completar acceso federado',
 };
 const prefs = 'motosys.origin';
+const sections: Record<string, { label: string; icon: string }> = {
+  vehicles: { label: 'Garaje', icon: '⌂' },
+  documents: { label: 'Alertas', icon: '◇' },
+  analytics: { label: 'Datos', icon: '▥' },
+  workshop: { label: 'Taller', icon: '⚙' },
+  admin: { label: 'Admin', icon: '◈' },
+  account: { label: 'Cuenta', icon: '○' },
+};
+
+const MotionContext = createContext(false);
+
+function useMotionPreference() {
+  const [enabled, setEnabled] = useState(false);
+  useEffect(() => {
+    let active = true;
+    let changed = false;
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', reduced => {
+      changed = true;
+      setEnabled(!reduced);
+    });
+    void AccessibilityInfo.isReduceMotionEnabled().then(reduced => {
+      if (active && !changed) {
+        setEnabled(!reduced);
+      }
+    }).catch(() => {});
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, []);
+  return enabled;
+}
+
+function ScreenTransition({ children }: Readonly<{ children: React.ReactNode }>) {
+  const motion = useContext(MotionContext);
+  const progress = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (!motion) {
+      progress.setValue(1);
+      return;
+    }
+    progress.setValue(0);
+    const transition = Animated.timing(progress, {
+      toValue: 1, duration: 200, easing: Easing.out(Easing.cubic), useNativeDriver: true,
+    });
+    transition.start();
+    return () => transition.stop();
+  }, [motion, progress]);
+  return <Animated.View style={{ gap: 16, opacity: progress, transform: [
+    { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) },
+  ] }}>{children}</Animated.View>;
+}
+
+function ConnectionBadge({ online, queued }: Readonly<{ online: boolean; queued: number }>) {
+  const motion = useContext(MotionContext);
+  const opacity = useRef(new Animated.Value(1)).current;
+  const pending = queued > 0;
+  useEffect(() => {
+    opacity.setValue(1);
+    if (!pending || !motion) {
+      return;
+    }
+    const pulse = Animated.loop(Animated.sequence([
+      Animated.timing(opacity, { toValue: 0.83, duration: 850, useNativeDriver: true, isInteraction: false }),
+      Animated.timing(opacity, { toValue: 1, duration: 850, useNativeDriver: true, isInteraction: false }),
+    ]));
+    pulse.start();
+    return () => pulse.stop();
+  }, [motion, opacity, pending]);
+  return (
+    <Animated.Text accessibilityLiveRegion="polite" style={[s.connection, !online && s.offline, { opacity }]}>
+      {online ? 'En línea' : 'Sin conexión'}{pending ? ' · ' + queued + ' pendientes' : ''}
+    </Animated.Text>
+  );
+}
+
+function Row({ label, detail, selected, onPress }: Readonly<{
+  label: string; detail?: string; selected?: boolean; onPress: () => void;
+}>) {
+  return (
+    <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress}
+      android_ripple={{ color: '#E9DCC1' }}
+      style={({ pressed }) => [s.row, selected && s.selectedRow, pressed && s.pressed]}>
+      <View style={s.rowCopy}>
+        <Text style={s.label}>{label}</Text>
+        {detail && <Text style={s.muted}>{detail}</Text>}
+      </View>
+      <Text accessible={false} style={s.arrow}>{selected ? '✓' : '›'}</Text>
+    </Pressable>
+  );
+}
 
 type ButtonProps = Readonly<{ label: string; onPress: () => void; prominent?: boolean; disabled?: boolean }>;
 function Button({ label, onPress, prominent = false, disabled = false }: ButtonProps) {
+  const motion = useContext(MotionContext);
+  const scale = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (!motion || disabled) {
+      scale.stopAnimation();
+      scale.setValue(1);
+    }
+    return () => scale.stopAnimation();
+  }, [disabled, motion, scale]);
+
+  function animate(toValue: number) {
+    if (motion) {
+      Animated.timing(scale, { toValue, duration: 110, useNativeDriver: true }).start();
+    }
+  }
+
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      style={[s.button, prominent && s.primary, disabled && s.disabled]}
-    >
-      <Text style={s.buttonText}>{label}</Text>
-    </Pressable>
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled }}
+        disabled={disabled}
+        onPress={onPress}
+        onPressIn={() => animate(0.97)}
+        onPressOut={() => animate(1)}
+        style={({ pressed }) => [s.button, prominent && s.primary, pressed && s.pressed, disabled && s.disabled]}
+      >
+        <Text style={s.buttonText}>{label}</Text>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -113,6 +226,18 @@ async function completeOidcExchange(
 }
 
 export default function App() {
+  const motion = useMotionPreference();
+  return (
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+      <MotionContext.Provider value={motion}>
+        <MobileApp />
+      </MotionContext.Provider>
+    </SafeAreaProvider>
+  );
+}
+
+function MobileApp() {
+  const insets = useSafeAreaInsets();
   const [fonts, fontError] = useFonts({ Inter_400Regular, Inter_700Bold, JetBrainsMono_400Regular });
   const [base, setBase] = useState('');
   const [originText, setOriginText] = useState('');
@@ -125,8 +250,16 @@ export default function App() {
   const [online, setOnline] = useState(true);
   const [screen, setScreen] = useState('vehicles');
   const [choice, setChoice] = useState('');
+  const [showServer, setShowServer] = useState(false);
+  const [showTotp, setShowTotp] = useState(false);
   const [bikes, setBikes] = useState<Bike[]>([]);
   const [bike, setBike] = useState('');
+  const [catalog, setCatalog] = useState<CatalogModel[]>([]);
+  const [workshops, setWorkshops] = useState<Workshop[]>([]);
+  const [workshop, setWorkshop] = useState('');
+  const [shortcut, setShortcut] = useState('');
+  const [insights, setInsights] = useState<BikeInsights>();
+  const [insightRevision, setInsightRevision] = useState(0);
   const [pending, setPending] = useState<Pending[]>([]);
   const [result, setResult] = useState<unknown>();
   const lock = useRef(false);
@@ -142,18 +275,24 @@ export default function App() {
     let alive = true;
     AsyncStorage.getItem(prefs)
       .then(async saved => {
-        if (!saved || !alive) return;
+        if (!saved || !alive) {
+          return;
+        }
         setBase(saved);
         setOriginText(saved);
         const stored = await SecureStore.getItemAsync('motosys.session');
         if (stored && alive) {
           const value = JSON.parse(stored) as NativeSession & { base: string };
-          if (value.base !== saved) return;
+          if (value.base !== saved) {
+            return;
+          }
           try {
             const current = await createApi(saved, value.token)<Session>('/api/core/auth/session');
             setSession({ token: value.token, account: current.account });
           } catch (error) {
-            if (!(error instanceof ApiError)) setSession(value);
+            if (!(error instanceof ApiError)) {
+              setSession(value);
+            }
           }
         }
       })
@@ -179,7 +318,9 @@ export default function App() {
       }
     }
     void Linking.getInitialURL().then(url => {
-      if (url) receive(url);
+      if (url) {
+        receive(url);
+      }
     });
     const listener = Linking.addEventListener('url', event => receive(event.url));
     return () => listener.remove();
@@ -198,30 +339,43 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (!queueKey) return;
+    if (!queueKey) {
+      return;
+    }
     let alive = true;
     enqueue(async () => {
       const saved = JSON.parse((await AsyncStorage.getItem(queueKey)) ?? '[]') as Pending[];
-      if (alive) setPending(saved);
+      if (alive) {
+        setPending(saved);
+      }
       if (online) {
         await replay(saved, api, async rows => {
           await AsyncStorage.setItem(queueKey, JSON.stringify(rows));
-          if (alive) setPending(rows);
+          if (alive) {
+            setPending(rows);
+          }
         });
+        if (alive && saved.length) {
+          setInsightRevision(previous => previous + 1);
+        }
       }
     }).catch(() => {
-      if (alive) setStatus('No se pudo sincronizar la cola.');
+      if (alive) {
+        setStatus('No se pudo sincronizar la cola.');
+      }
     });
     if (online) {
       void refreshBikes().catch(error => {
-        if (alive) setStatus((error as Error).message);
+        if (alive) {
+          setStatus((error as Error).message);
+        }
       });
     } else {
       AsyncStorage.getItem(queueKey + '.vehicles').then(raw => {
         if (alive && raw) {
           const rows = JSON.parse(raw) as Bike[];
           setBikes(rows);
-          setBike(rows[0]?.id ?? '');
+          setBike(previous => rows.some(item => item.id === previous) ? previous : rows[0]?.id ?? '');
         }
       });
     }
@@ -230,8 +384,44 @@ export default function App() {
     };
   }, [queueKey, online]);
 
+  useEffect(() => {
+    if (!(session && online)) {
+      setCatalog([]);
+      return;
+    }
+    let current = true;
+    void api<CatalogModel[]>('/api/analytics/catalog')
+      .then(rows => { if (current) { setCatalog(rows); } })
+      .catch(() => {});
+    return () => { current = false; };
+  }, [session, online]);
+
+  async function refreshWorkshops(preferred?: string) {
+    const rows = await api<Workshop[]>('/api/core/workshops');
+    setWorkshops(rows);
+    setWorkshop(current => preferred || (rows.some(row => row.id === current) ? current : rows[0]?.id ?? ''));
+  }
+
+  useEffect(() => {
+    if (session && online && session.account.role !== 'RIDER') {
+      void refreshWorkshops(session.account.workshopId).catch((error: Error) => setStatus(error.message));
+    }
+  }, [session, online]);
+
+  useEffect(() => {
+    setInsights(undefined);
+    if (!session || !online || !bike) {
+      return;
+    }
+    let current = true;
+    void loadBikeInsights(api, bike).then(value => { if (current) setInsights(value); });
+    return () => { current = false; };
+  }, [session, online, bike, insightRevision]);
+
   async function guarded(fn: () => Promise<void>) {
-    if (lock.current) return;
+    if (lock.current) {
+      return;
+    }
     lock.current = true;
     setBusy(true);
     setStatus('');
@@ -256,7 +446,9 @@ export default function App() {
 
   async function startFederated(provider: string) {
     await guarded(async () => {
-      if (!base) throw new Error('Guarda primero la URL HTTPS.');
+      if (!base) {
+        throw new Error('Guarda primero la URL HTTPS.');
+      }
       const bytes = await Crypto.getRandomBytesAsync(32);
       const verifier = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
       const challenge = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, verifier);
@@ -266,9 +458,15 @@ export default function App() {
   }
 
   async function authenticateLocal(localMode: Exclude<Mode, 'oidc'>) {
-    if (localMode !== 'reset' && !auth.email?.trim()) throw new Error('Escribe el correo electrónico.');
-    if (localMode !== 'recover' && !auth.password) throw new Error('Escribe la contraseña.');
-    if (!base) throw new Error('Guarda primero la URL HTTPS.');
+    if (localMode !== 'reset' && !auth.email?.trim()) {
+      throw new Error('Escribe el correo electrónico.');
+    }
+    if (localMode !== 'recover' && !auth.password) {
+      throw new Error('Escribe la contraseña.');
+    }
+    if (!base) {
+      throw new Error('Guarda primero la URL HTTPS.');
+    }
     const { route, payload } = buildLocalAuthRequest(localMode, auth);
     const value = await api<Session>('/api/core/auth/' + route, 'POST', payload);
     if (localMode === 'login' && value.accessToken) {
@@ -305,11 +503,37 @@ export default function App() {
       await SecureStore.deleteItemAsync('motosys.session');
       setSession(undefined);
       setBikes([]);
+      setBike('');
+      setWorkshops([]);
+      setWorkshop('');
       setPending([]);
       setResult(undefined);
       setMode('login');
+      navigate('vehicles');
     });
   }
+
+  function navigate(next: string, action = '', preset = '') {
+    setShortcut(preset);
+    setScreen(next);
+    setChoice(action);
+    setResult(undefined);
+    setStatus('');
+  }
+
+  useEffect(() => {
+    if (!session || (!choice && screen === 'vehicles')) {
+      return;
+    }
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (lock.current) {
+        return true;
+      }
+      navigate(choice ? screen : 'vehicles');
+      return true;
+    });
+    return () => subscription.remove();
+  }, [session, choice, screen]);
 
   if (!fonts && !fontError) {
     return <View style={s.shell}><Text accessibilityLiveRegion="polite">Cargando MotoSys…</Text></View>;
@@ -317,127 +541,243 @@ export default function App() {
 
   if (!session) {
     return (
-      <ScrollView contentContainerStyle={s.shell} keyboardShouldPersistTaps="handled">
-        <View style={s.logoLine}>
-          <Image source={require('./assets/motosys.png')} style={s.logo} />
-          <Text style={s.brand}>MotoSys</Text>
-        </View>
-        <Text style={s.kicker}>TU GARAJE DIGITAL</Text>
-        <Text style={s.title}>{access[mode]}</Text>
-        <Input label="Servidor HTTPS (IP LAN y puerto)" value={originText} onChange={setOriginText} />
-        <Button label="Guardar servidor" onPress={() => void saveOrigin()} disabled={busy} />
-        {mode !== 'reset' && mode !== 'oidc' && (
-          <Input label="Correo electrónico" value={auth.email ?? ''} onChange={email => setAuth({ ...auth, email })} />
-        )}
-        {mode === 'reset' && (
-          <Input label="Token del enlace de recuperación" value={auth.token ?? ''} onChange={token => setAuth({ ...auth, token })} />
-        )}
-        {mode !== 'recover' && mode !== 'oidc' && (
-          <Input label="Contraseña" value={auth.password ?? ''} onChange={password => setAuth({ ...auth, password })} secret />
-        )}
-        {(mode === 'login' || (mode === 'oidc' && grant?.requiresMfa)) && (
-          <Input label="Código TOTP" value={auth.totp ?? ''} onChange={totp => setAuth({ ...auth, totp })} numeric />
-        )}
-        <Button label={busy ? 'Procesando…' : access[mode]} prominent disabled={busy} onPress={() => void authenticate()} />
-        {mode === 'login' && (
-          <View style={s.wrap}>
-            {['Google', 'Microsoft', 'Dev'].map(provider => (
-              <Button key={provider} label={provider} disabled={busy} onPress={() => void startFederated(provider.toLowerCase())} />
-            ))}
+      <KeyboardAvoidingView style={[s.app, { paddingTop: insets.top, paddingLeft: insets.left, paddingRight: insets.right }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={[s.shell, { paddingBottom: 24 + insets.bottom }]} keyboardShouldPersistTaps="handled">
+          <View style={s.logoLine}>
+            <Image source={require('./assets/motosys.png')} style={s.logo} />
+            <Text style={s.brand}>MotoSys</Text>
           </View>
-        )}
-        {(['login', 'register', 'recover', 'reset'] as Mode[])
-          .filter(item => item !== mode)
-          .map(item => (
-            <Button key={item} label={access[item]} onPress={() => { setMode(item); setStatus(''); }} />
-          ))}
-        <Text accessibilityLiveRegion="polite" style={s.label}>{status}</Text>
-      </ScrollView>
+          <Text accessibilityRole="header" style={s.title}>{access[mode]}</Text>
+          {(!base || showServer) && (
+            <View style={s.card}>
+              <Input label="Servidor HTTPS" value={originText} onChange={setOriginText} />
+              <Button label="Guardar servidor" onPress={() => void saveOrigin()} disabled={busy} />
+            </View>
+          )}
+          {mode !== 'reset' && mode !== 'oidc' && (
+            <Input label="Correo electrónico" value={auth.email ?? ''} onChange={email => setAuth({ ...auth, email })} />
+          )}
+          {mode === 'reset' && (
+            <Input label="Token del enlace de recuperación" value={auth.token ?? ''} onChange={token => setAuth({ ...auth, token })} />
+          )}
+          {mode !== 'recover' && mode !== 'oidc' && (
+            <Input label="Contraseña" value={auth.password ?? ''} onChange={password => setAuth({ ...auth, password })} secret />
+          )}
+          {mode === 'login' && !showTotp && <Row label="Usar código de verificación" onPress={() => setShowTotp(true)} />}
+          {((mode === 'login' && showTotp) || (mode === 'oidc' && grant?.requiresMfa)) && (
+            <Input label="Código TOTP" value={auth.totp ?? ''} onChange={totp => setAuth({ ...auth, totp })} numeric />
+          )}
+          <Button label={busy ? 'Procesando…' : access[mode]} prominent disabled={busy} onPress={() => void authenticate()} />
+          {mode === 'login' && (
+            <View style={s.wrap}>
+              {['Google', 'Microsoft', 'Dev'].map(provider => (
+                <Button key={provider} label={provider} disabled={busy} onPress={() => void startFederated(provider.toLowerCase())} />
+              ))}
+            </View>
+          )}
+          {(['login', 'register', 'recover', 'reset'] as Mode[])
+            .filter(item => item !== mode)
+            .map(item => (
+              <Row key={item} label={access[item]} onPress={() => { setMode(item); setStatus(''); }} />
+            ))}
+          {base && <Row label={showServer ? 'Ocultar servidor' : 'Configurar servidor'} onPress={() => setShowServer(!showServer)} />}
+          {!!status && <Text accessibilityLiveRegion="polite" style={s.feedback}>{status}</Text>}
+        </ScrollView>
+      </KeyboardAvoidingView>
     );
   }
 
   const panels = accountPanels(session.account);
-  const panel = panels.find(x => x.id === screen) ?? panels[0];
-  const action = panel.actions.find(x => x.id === choice) ?? panel.actions[0];
+  const panel = panels.find(item => item.id === screen) ?? panels[0];
+  const action = panel.actions.find(item => item.id === choice);
+  const activeShortcut = shortcuts.find(item => item.id === shortcut);
+  const activeBike = bikes.find(item => item.id === bike);
+  const needsBike = action?.fields?.some(field => field.name === 'motorcycleId');
+  const showWorkshop = panel.id === 'workshop' || panel.id === 'admin';
+  const canRegisterBike = panel.actions.some(item => item.id === 'create');
 
   return (
-    <ScrollView contentContainerStyle={s.shell} keyboardShouldPersistTaps="handled">
-      <View style={s.hero}>
+    <KeyboardAvoidingView style={[s.app, { paddingTop: insets.top, paddingLeft: insets.left, paddingRight: insets.right }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <StatusBar barStyle="dark-content" />
+      <View style={s.header}>
         <View style={s.logoLine}>
-          <Image source={require('./assets/motosys.png')} style={s.logo} />
-          <Text style={s.heroBrand}>MotoSys</Text>
+          <Image source={require('./assets/motosys.png')} style={s.mark} />
+          <Text style={s.brand}>MotoSys</Text>
         </View>
-        <Text style={s.heroRole}>{roles[session.account.role]}</Text>
+        <ConnectionBadge online={online} queued={pending.length} />
       </View>
-      <Text style={s.kicker}>{online ? 'EN LÍNEA' : 'SIN CONEXIÓN'} · {pending.length} PENDIENTES</Text>
-      {pending.filter(row => row.issue).map(row => (
-        <Text style={s.error} key={row.key}>{row.issue} · Registro retenido</Text>
-      ))}
-      <View style={s.wrap}>
-        {panels.map(item => (
-          <Button key={item.id} label={item.label} prominent={item.id === panel.id} onPress={() => { setScreen(item.id); setChoice(''); setResult(undefined); }} />
+      <ScrollView key={[screen, choice, shortcut].join(':')} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+        <ScreenTransition>
+          {screen === 'account' && (
+            <>
+              <Text style={s.title} accessibilityRole="header">Mi cuenta</Text>
+              <View style={s.card}>
+                <Text style={s.subtitle}>{roles[session.account.role]}</Text>
+                <Text style={s.muted}>{pending.length} registros pendientes de sincronización</Text>
+                {pending.filter(row => row.issue).map(row => (
+                  <Text style={s.error} key={row.key}>{row.issue} · Registro retenido</Text>
+                ))}
+                <Button label="Cerrar sesión" disabled={busy} onPress={() => void handleLogout()} />
+              </View>
+            </>
+          )}
+          {screen !== 'account' && action && (
+            <>
+              <Row label={'Volver a ' + sections[panel.id].label} onPress={() => { if (!lock.current) { navigate(panel.id); } }} />
+              <Text style={s.title} accessibilityRole="header">{activeShortcut?.label ?? action.label}</Text>
+              {needsBike && bikes.length > 0 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
+                  {bikes.map(item => <Row key={item.id} label={item.plate} selected={bike === item.id}
+                    onPress={() => { if (!lock.current) { setBike(item.id); setResult(undefined); setStatus(''); } }} />)}
+                </ScrollView>
+              )}
+              {showWorkshop && workshops.length > 0 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
+                  {workshops.map(item => <Row key={item.id} label={item.name} selected={workshop === item.id}
+                    onPress={() => { if (!lock.current) { setWorkshop(item.id); setResult(undefined); } }} />)}
+                </ScrollView>
+              )}
+              <View style={s.card}>
+                <Operation
+                  key={[action.id, bike, workshop, shortcut].join(':')}
+                  action={action}
+                  catalog={catalog}
+                  defaults={{ motorcycleId: bike, workshopId: workshop, occurredAt: new Date().toISOString().slice(0, 10), ...activeShortcut?.values }}
+                  busy={busy}
+                  onRun={(path, body) => guarded(async () => {
+                    if (action.event && body) {
+                      const entry = { key: Crypto.randomUUID(), path, body };
+                      await enqueue(async () => {
+                        const saved = JSON.parse((await AsyncStorage.getItem(queueKey)) ?? '[]') as Pending[];
+                        const next = [...saved, entry];
+                        await AsyncStorage.setItem(queueKey, JSON.stringify(next));
+                        setPending(next);
+                        const remaining = online
+                          ? await replay(next, api, async rows => {
+                            await AsyncStorage.setItem(queueKey, JSON.stringify(rows));
+                            setPending(rows);
+                          })
+                          : next;
+                        setInsightRevision(previous => previous + 1);
+                        setStatus(remaining.some(item => item.key === entry.key) ? 'Registro pendiente de sincronización.' : 'Registro sincronizado.');
+                      });
+                      return;
+                    }
+                    if (!online) {
+                      throw new Error('Esta operación requiere conexión.');
+                    }
+                    if (action.binary) {
+                      const file = await FileSystem.downloadAsync(base + path, (FileSystem.cacheDirectory ?? '') + action.binary, {
+                        headers: { Authorization: 'Bearer ' + session.token },
+                      });
+                      if (file.status !== 200) {
+                        throw new Error('No se pudo descargar el archivo (' + file.status + ').');
+                      }
+                      await Sharing.shareAsync(file.uri);
+                    } else {
+                      setResult(await api(path, action.method, body));
+                    }
+                    if (action.id === 'shop-add') {
+                      await refreshWorkshops();
+                    }
+                    if (['create', 'edit', 'delete', 'odo'].includes(action.id)) {
+                      await refreshBikes();
+                    }
+                    setStatus('Operación completada.');
+                  })}
+                />
+              </View>
+              {result !== undefined && <ScreenTransition><Result value={result} /></ScreenTransition>}
+            </>
+          )}
+          {screen !== 'account' && !action && (
+            <>
+              <Text style={s.title} accessibilityRole="header">{panel.id === 'vehicles' ? 'Mi garaje' : panel.label}</Text>
+              {panel.id === 'vehicles' && (
+                <GarageSummary bike={activeBike} insights={insights} online={online}
+                  onRegister={canRegisterBike ? () => navigate(panel.id, 'create') : undefined} />
+              )}
+              {panel.id === 'vehicles' && activeBike && (
+                <View style={s.wrap}>
+                  {shortcuts.map(item => <Button key={item.id} label={item.label} onPress={() => navigate(panel.id, item.action, item.id)} />)}
+                </View>
+              )}
+              {panel.id === 'vehicles' && bikes.length > 1 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
+                  {bikes.map(item => <Row key={item.id} label={item.plate} detail={item.make} selected={bike === item.id}
+                    onPress={() => setBike(item.id)} />)}
+                </ScrollView>
+              )}
+              <View style={s.actionList}>
+                {panel.actions.map(item => <Row key={item.id} label={item.label} onPress={() => navigate(panel.id, item.id)} />)}
+              </View>
+            </>
+          )}
+          {!!status && <Text style={s.feedback} accessibilityLiveRegion="polite">{status}</Text>}
+        </ScreenTransition>
+      </ScrollView>
+      <View style={[s.tabBar, { paddingBottom: 8 + insets.bottom }]} accessibilityRole="tablist">
+        {[...panels.map(item => item.id), 'account'].map(id => (
+          <Pressable key={id} accessibilityRole="tab" accessibilityState={{ selected: screen === id, disabled: busy }}
+            disabled={busy} onPress={() => navigate(id)} style={({ pressed }) => [s.tab, pressed && s.pressed]}>
+            <View style={[s.tabIcon, screen === id && s.activeTab]}>
+              <Text accessible={false} style={s.icon}>{sections[id].icon}</Text>
+            </View>
+            <Text style={[s.tabLabel, screen === id && s.activeTabLabel]}>{sections[id].label}</Text>
+          </Pressable>
         ))}
       </View>
-      <Text style={s.title}>{panel.label}</Text>
-      <Text style={s.label}>Motocicleta activa</Text>
-      <View style={s.wrap}>
-        {bikes.map(item => (
-          <Button key={item.id} label={item.plate + ' · ' + item.make} prominent={item.id === bike} onPress={() => { setBike(item.id); setResult(undefined); }} />
-        ))}
-      </View>
-      {bikes.length === 0 && <Text style={s.label}>Sin motocicletas disponibles.</Text>}
-      <View style={s.wrap}>
-        {panel.actions.map(item => (
-          <Button key={item.id} label={item.label} prominent={item.id === action.id} onPress={() => { setChoice(item.id); setResult(undefined); }} />
-        ))}
-      </View>
-      <View style={s.card}>
-        <Text style={s.subtitle}>{action.label}</Text>
-        <Operation
-          key={action.id + ':' + bike}
-          action={action}
-          defaults={{ motorcycleId: bike, workshopId: session.account.workshopId ?? '', occurredAt: new Date().toISOString().slice(0, 10) }}
-          busy={busy}
-          onRun={(path, body) => guarded(async () => {
-            if (action.event && body) {
-              const entry = { key: Crypto.randomUUID(), path, body };
-              await enqueue(async () => {
-                const saved = JSON.parse((await AsyncStorage.getItem(queueKey)) ?? '[]') as Pending[];
-                const next = [...saved, entry];
-                await AsyncStorage.setItem(queueKey, JSON.stringify(next));
-                setPending(next);
-                const remaining = online
-                  ? await replay(next, api, async rows => {
-                    await AsyncStorage.setItem(queueKey, JSON.stringify(rows));
-                    setPending(rows);
-                  })
-                  : next;
-                setStatus(remaining.some(item => item.key === entry.key) ? 'Registro pendiente de sincronización.' : 'Registro sincronizado.');
-              });
-              return;
-            }
-            if (!online) throw new Error('Esta operación requiere conexión.');
-            if (action.binary) {
-              const file = await FileSystem.downloadAsync(base + path, (FileSystem.cacheDirectory ?? '') + action.binary, {
-                headers: { Authorization: 'Bearer ' + session.token },
-              });
-              if (file.status !== 200) throw new Error('No se pudo descargar el archivo (' + file.status + ').');
-              await Sharing.shareAsync(file.uri);
-            } else {
-              setResult(await api(path, action.method, body));
-            }
-            if (['create', 'edit', 'delete', 'odo'].includes(action.id)) await refreshBikes();
-            setStatus('Operación completada.');
-          })}
-        />
-        <Text style={s.label} accessibilityLiveRegion="polite">{status}</Text>
-        {result !== undefined && (Array.isArray(result) && !result.length
-          ? <Text style={s.label}>Sin registros.</Text>
-          : <Text selectable style={s.results}>{JSON.stringify(result, null, 2)}</Text>)}
-      </View>
-      <Button label="Cerrar sesión" disabled={busy} onPress={() => void handleLogout()} />
-    </ScrollView>
+    </KeyboardAvoidingView>
   );
+}
+
+function GarageSummary({ bike, insights, online, onRegister }: Readonly<{
+  bike?: Bike; insights?: BikeInsights; online: boolean; onRegister?: () => void;
+}>) {
+  const settled = Boolean(insights) || !online;
+  const prediction = insights?.recommendation;
+  const source = recommendationSource(prediction);
+  return (
+    <View style={s.garage}>
+      <Text style={s.garageCaption}>MI MOTO</Text>
+      <Text style={s.garagePlate}>{bike?.plate ?? 'Sin motocicletas'}</Text>
+      {!bike && onRegister && <Button label="Registrar motocicleta" prominent onPress={onRegister} />}
+      {bike && (
+        <>
+          <Text style={s.garageCaption}>{bike.make} {bike.model}</Text>
+          <View style={s.garageMetrics}>
+            <Text style={s.garageCaption}>Odómetro actual</Text>
+            <Text style={s.garageValue}>{bike.odometer_km == null ? 'No disponible' : distance(bike.odometer_km)}</Text>
+            <Text style={s.garageCaption}>Gasto acumulado</Text>
+            <Text style={s.garageValue}>{insights?.tco ? pesos(insights.tco.tco_cop) : availability(settled)}</Text>
+            <Text style={s.garageCaption}>Próximo mantenimiento estimado</Text>
+            <Text style={s.garageValue}>{prediction
+              ? readableDate(prediction.next_maintenance_date) + ' · ' + pesos(prediction.expected_cost_cop)
+              : predictionStatus(settled)}</Text>
+            {!!source && <Text style={s.garageCaption}>{source}</Text>}
+          </View>
+        </>
+      )}
+    </View>
+  );
+}
+
+function Result({ value }: Readonly<{ value: unknown }>) {
+  const rows = Array.isArray(value) ? value : [value];
+  if (!rows.length || value == null) {
+    return <Text style={s.feedback}>Sin registros.</Text>;
+  }
+  return <View style={s.form}>{rows.map((item, index) => (
+    <View key={index} style={s.card}>
+      {resultFields(item).map(field => (
+        <View key={field.key} style={s.resultField}>
+          {!!field.label && <Text style={s.muted}>{field.label}</Text>}
+          <Text selectable={!field.badge}
+            style={[s.resultValue, field.badge && s.badge, field.badge === 'EXPENSE' && s.expenseBadge]}>{field.value}</Text>
+        </View>
+      ))}
+    </View>
+  ))}</View>;
 }
 
 function renderOperationField(
@@ -454,7 +794,7 @@ function renderOperationField(
         <Text style={s.label}>{field.label}</Text>
         <View style={s.wrap}>
           {field.options.map(option => (
-            <Button key={option} label={option} prominent={option === value} onPress={() => onChangeValue(option)} />
+            <Button key={option} label={optionLabel(option)} prominent={option === value} onPress={() => onChangeValue(option)} />
           ))}
         </View>
         {error && <Text style={s.error}>{error}</Text>}
@@ -482,26 +822,82 @@ function renderOperationField(
   );
 }
 
+function CatalogPicker({ label, value, options, onPick }: Readonly<{
+  label: string; value: string; options: string[]; onPick: (value: string) => void;
+}>) {
+  const motion = useContext(MotionContext);
+  const [visible, setVisible] = useState(false);
+  return (
+    <>
+      <Row label={label} detail={value || 'Seleccionar'} onPress={() => setVisible(true)} />
+      <Modal visible={visible} animationType={motion ? "slide" : "none"} presentationStyle="pageSheet" onRequestClose={() => setVisible(false)}>
+        <View style={s.pickerShell}>
+          <Button label="Cerrar" onPress={() => setVisible(false)} />
+          <ScrollView contentContainerStyle={s.form}>
+            {options.map(option => <Row key={option} label={option} selected={option === value} onPress={() => {
+              onPick(option);
+              setVisible(false);
+            }} />)}
+          </ScrollView>
+        </View>
+      </Modal>
+    </>
+  );
+}
+
 type OperationProps = Readonly<{
   action: Action;
+  catalog: CatalogModel[];
   defaults: Record<string, string>;
   busy: boolean;
   onRun: (path: string, body?: object) => void;
 }>;
 
-function Operation({ action, defaults, busy, onRun }: OperationProps) {
+function resolveAutoPath(action: Action, defaults: Record<string, string>) {
+  if (!canAutoRun(action, defaults) || missingContext(action, defaults)) {
+    return '';
+  }
+  const request = prepare(action, operationValues(action, defaults));
+  return Object.keys(request.errors).length ? '' : request.path;
+}
+
+function idleOperationLabel(autoRunnable: boolean, label: string) {
+  return autoRunnable ? 'Actualizar datos' : label;
+}
+
+function Operation({ action, catalog, defaults, busy, onRun }: OperationProps) {
   const [values, setValues] = useState(defaults);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [file, setFile] = useState<Picker.DocumentPickerAsset>();
 
+  const [catalogMake, setCatalogMake] = useState('');
+  const [catalogModel, setCatalogModel] = useState('');
+  const useCatalog = action.id === 'create' && catalog.length > 0;
+  const choices = catalogChoices(catalog, catalogMake);
+  const contextMessage = missingContext(action, values);
+  const autoRunnable = canAutoRun(action, defaults);
+  const autoPath = resolveAutoPath(action, defaults);
+  const autoRun = useRef(onRun);
+  useEffect(() => {
+    autoRun.current = onRun;
+  }, [onRun]);
+  useEffect(() => {
+    if (autoPath) {
+      autoRun.current(autoPath);
+    }
+  }, [autoPath]);
+
   function submit() {
+    if (contextMessage) { return; }
     const multipart = file ? new FormData() : undefined;
     if (file && multipart) {
       multipart.append('file', { uri: file.uri, type: file.mimeType ?? 'application/octet-stream', name: file.name } as unknown as Blob);
     }
-    const request = prepare(action, values, multipart);
+    const request = prepare(action, operationValues(action, values), multipart);
     setErrors(request.errors);
-    if (Object.keys(request.errors).length) return;
+    if (Object.keys(request.errors).length) {
+      return;
+    }
     if (action.method === 'DELETE') {
       Alert.alert('Eliminar motocicleta', '¿Confirmas esta operación?', [
         { text: 'Cancelar' },
@@ -514,7 +910,22 @@ function Operation({ action, defaults, busy, onRun }: OperationProps) {
 
   return (
     <View style={s.form}>
-      {action.fields?.map(field =>
+      {useCatalog && <View style={s.form}>
+        <CatalogPicker label="Marca" value={catalogMake} options={choices.makes} onPick={make => {
+          setCatalogMake(make);
+          setCatalogModel('');
+          setValues(previous => ({ ...previous, make: make === otherModel ? '' : make, model: '' }));
+        }} />
+        {!!catalogMake && catalogMake !== otherModel && (
+          <CatalogPicker label="Modelo" value={catalogModel} options={choices.models} onPick={model => {
+            setCatalogModel(model);
+            setValues(previous => ({ ...previous, model: model === otherModel ? '' : model }));
+          }} />
+        )}
+        {(errors.make || errors.model) && <Text style={s.error}>{errors.make ?? errors.model}</Text>}
+      </View>}
+      {action.fields?.filter(field => !fixedContext(field.name, defaults)
+        && (!useCatalog || showRegistrationField(field.name, catalogMake, catalogModel))).map(field =>
         renderOperationField(
           field,
           values[field.name] ?? '',
@@ -523,23 +934,55 @@ function Operation({ action, defaults, busy, onRun }: OperationProps) {
           next => setValues({ ...values, [field.name]: next }),
           () => {
             void Picker.getDocumentAsync().then(picked => {
-              if (!picked.canceled) setFile(picked.assets[0]);
+              if (!picked.canceled) {
+                setFile(picked.assets[0]);
+              }
             });
           },
         ),
       )}
-      <Button label={busy ? 'Procesando…' : action.label} prominent disabled={busy} onPress={submit} />
+      {!!contextMessage && <Text style={s.feedback}>{contextMessage}</Text>}
+      <Button label={busy ? 'Procesando…' : idleOperationLabel(autoRunnable, action.label)}
+        prominent disabled={busy || Boolean(contextMessage)} onPress={submit} />
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  shell: { paddingHorizontal: 18, paddingTop: 48, paddingBottom: 40, backgroundColor: white, gap: 14, flexGrow: 1 },
-  hero: { backgroundColor: ink, padding: 18, borderRadius: 14, gap: 4 },
-  heroBrand: { color: amber, fontSize: 27, fontFamily: 'Inter_700Bold' },
-  heroRole: { color: white, fontSize: 14 },
+  app: { flex: 1, backgroundColor: '#F7F5EF' },
+  shell: { padding: 24, gap: 14, flexGrow: 1 },
+  header: { minHeight: 64, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  content: { padding: 20, paddingBottom: 32 },
+  mark: { width: 32, height: 32, borderRadius: 9 },
+  connection: { color: '#215447', backgroundColor: '#DEEBE4', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, fontSize: 12 },
+  offline: { color: '#74410C', backgroundColor: '#FBE8C7' },
+  garage: { backgroundColor: ink, borderRadius: 24, padding: 22, gap: 12 },
+  garageCaption: { color: '#CCDAEC', fontFamily: 'Inter_400Regular', fontSize: 13 },
+  garageMetrics: { gap: 5, paddingTop: 8 },
+  garageValue: { color: white, fontFamily: 'Inter_700Bold', marginBottom: 7, fontSize: 16 },
+  badge: { alignSelf: 'flex-start', color: '#215447', backgroundColor: '#DEEBE4', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 },
+  expenseBadge: { color: '#74410C', backgroundColor: '#FBE8C7' },
+  garagePlate: { color: white, fontFamily: 'Inter_700Bold', fontSize: 32 },
+  row: { minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, backgroundColor: '#FFF' },
+  rowCopy: { flexShrink: 1 },
+  selectedRow: { backgroundColor: '#F9E6BD' },
+  arrow: { color: '#805312', fontSize: 21 },
+  actionList: { gap: 6 },
+  chips: { gap: 8 },
+  muted: { color: '#4B5563', fontFamily: 'Inter_400Regular', fontSize: 13 },
+  pressed: { opacity: 0.72 },
+  feedback: { padding: 12, borderRadius: 12, color: ink, backgroundColor: '#EBE8DE' },
+  tabBar: { backgroundColor: '#FFF', borderTopWidth: 1, borderColor: '#E5E1D7', flexDirection: 'row', paddingTop: 7, paddingHorizontal: 6 },
+  tab: { flex: 1, alignItems: 'center', minHeight: 50, gap: 3 },
+  tabIcon: { minWidth: 38, height: 29, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  activeTab: { backgroundColor: '#F9E6BD' },
+  icon: { color: ink, fontSize: 19, lineHeight: 23 },
+  tabLabel: { color: '#4B5563', fontSize: 11 },
+  activeTabLabel: { color: ink, fontFamily: 'Inter_700Bold' },
+  pickerShell: { flex: 1, gap: 10, padding: 20, paddingTop: 48, paddingBottom: 48, backgroundColor: '#F7F5EF' },
+  resultField: { gap: 3 },
+  resultValue: { color: ink, fontFamily: 'Inter_400Regular', fontSize: 15 },
   brand: { color: ink, fontSize: 28, fontFamily: 'Inter_700Bold' },
-  kicker: { color: '#475569', fontFamily: 'JetBrainsMono_400Regular', fontSize: 12, letterSpacing: 1.4 },
   title: { color: ink, fontSize: 30, fontFamily: 'Inter_700Bold' },
   subtitle: { color: ink, fontSize: 21, fontFamily: 'Inter_700Bold' },
   label: { color: ink, fontFamily: 'Inter_700Bold', marginBottom: 4 },
@@ -555,5 +998,4 @@ const s = StyleSheet.create({
   logo: { width: 40, height: 40 },
   invalid: { borderColor: '#a31528' },
   error: { color: '#a31528' },
-  results: { fontFamily: 'JetBrainsMono_400Regular', color: ink },
 });

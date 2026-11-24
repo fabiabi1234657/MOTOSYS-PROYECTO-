@@ -1,0 +1,326 @@
+[
+  {
+    "make": "Honda",
+    "model": "CB125F",
+    "cc": 124,
+    "segment": "urbana",
+    "oil_interval_km": 3000,
+    "service_interval_days": 90,
+    "expected_cost_cop": 65000
+  },
+  {
+    "make": "Honda",
+    "model": "XR150L",
+    "cc": 149,
+    "segment": "doble propósito",
+    "oil_interval_km": 3000,
+    "service_interval_days": 90,
+    "expected_cost_cop": 65000
+  },
+  {
+    "make": "Honda",
+    "model": "CB190R",
+    "cc": 184,
+    "segment": "naked",
+    "oil_interval_km": 4000,
+    "service_interval_days": 120,
+    "expected_cost_cop": 105000
+  },
+  {
+    "make": "Honda",
+    "model": "XRE300",
+    "cc": 291,
+    "segment": "aventura",
+    "oil_interval_km": 4000,
+    "service_interval_days": 120,
+    "expected_cost_cop": 105000
+  },
+  {
+    "make": "Honda",
+    "model": "Navi",
+    "cc": 109,
+    "segment": "scooter",
+    "oil_interval_km": 3000,
+    "service_interval_days": 90,
+    "expected_cost_cop": 65000
+  },
+  {
+    "make": "Yamaha",
+    "model": "NMAX 155",
+    "cc": 155,
+    "segment": "scooter",
+    "oil_interval_km": 4000,
+    "service_interval_days": 120,
+    "expected_cost_cop": 105000
+  },
+  {
+    "make": "Yamaha",
+    "model": "FZ25",
+    "cc": 249,
+    "segment": "naked",
+    "oil_interval_km": 4000,
+    "service_interval_days": 120,
+    "expected_cost_cop": 105000
+  },
+  {
+    "make": "Yamaha",
+    "model": "XTZ150",
+    "cc": 149,
+    "segment": "doble propósito",
+    "oil_interval_km": 3000,
+    "service_interval_days": 90,
+    "expected_cost_cop": 65000
+  },
+  {
+    "make": "Yamaha",
+    "model": "MT-03",
+    "cc": 321,
+    "segment": "naked",
+    "oil_interval_km": 5000,
+    "service_interval_days": 180,
+    "expected_cost_cop": 180000
+  },
+  {
+    "make": "Yamaha",
+    "model": "Crypton",
+    "cc": 114,
+    "segment": "semiautomática",
+    "oil_interval_km": 3000,
+    "service_interval_days": 90,
+    "expected_cost_cop": 65000
+  },
+  {
+    "make": "Yamaha",
+    "model": "R15",
+    "cc": 155,
+    "segment": "deportiva",
+    "oil_interval_km": 4000,
+    "service_interval_days": 120,
+    "expected_cost_cop": 105000
+  },
+  {
+    "make": "Bajaj",
+    "model": "Boxer CT100",
+    "cc": 102,
+    "segment": "urbana",
+    "oil_interval_km": 3000,
+    "service_interval_days": 90,
+    "expected_cost_cop": 65000
+  },
+  {
+    "make": "Bajaj",
+    "model": "Pulsar NS160",
+    "cc": 160,
+    "segment": "naked",
+    "oil_interval_km": 4000,
+    "service_interval_days": 120,
+    "expected_cost_cop": 105000
+  },
+  {
+    "make": "Bajaj",
+    "model": "Pulsar NS200",
+    "cc": 199,
+    "segment": "naked",
+    "oil_interval_km": 4000,
+    "service_interval_days": 120,
+    "expected_cost_cop": 105000
+  },
+  {
+    "make": "Bajaj",
+    "model": "Dominar 400",
+    "cc": 373,
+    "segment": "turismo",
+    "oil_interval_km": 5000,
+    "service_interval_days": 180,
+    "expected_cost_cop": 180000
+  },
+  {
+    "make": "Bajaj",
+    "model": "Discover 125",
+    "cc": 124,
+    "segment": "urbana",
+    "oil_interval_km": 3000,
+    "service_interval_days": 90,
+    "expected_cost_cop": 65000
+  },
+  {
+    "make": "Suzuki",
+    "model": "GN125",
+    "cc": 124,
+    "segment": "urbana",
+    "oil_interval_km": 3000,
+    "service_interval_days": 90,
+    "expected_cost_cop": 65000
+  },
+  {
+    "make": "Suzuki",
+    "model": "Gixxer 150",
+    "cc": 155,
+    "segment": "naked",
+    "oil_interval_km": 4000,
+    "service_interval_days": 120,
+    "expected_cost_cop": 105000
+  },
+  {
+    "make": "Suzuki",
+    "model": "Gixxer 250",
+    "cc": 249,
+    "segment": "naked",
+    "oil_interval_km": 4000,
+    "service_interval_days": 120,
+    "expected_cost_cop": 105000
+  },
+  {
+    "make": "Suzuki",
+    "model": "V-Strom 250",
+    "cc": 249,
+    "segment": "aventura",
+    "oil_interval_km": 4000,
+    "service_interval_days": 120,
+    "expected_cost_cop": 105000
+  },
+  {
+    "make": "Suzuki",
+    "model": "DR150",
+    "cc": 149,
+    "segment": "doble propósito",
+    "oil_interval_km": 3000,
+    "service_interval_days": 90,
+    "expected_cost_cop": 65000
+  },
+  {
+    "make": "AKT",
+    "model": "NKD 125",
+    "cc": 124,
+    "segment": "urbana",
+    "oil_interval_km": 3000,
+    "service_interval_days": 90,
+    "expected_cost_cop": 65000
+  },
+  {
+    "make": "AKT",
+    "model": "TT200",
+    "cc": 197,
+    "segment": "doble propósito",
+    "oil_interval_km": 4000,
+    "service_interval_days": 120,
+    "expected_cost_cop": 105000
+  },
+  {
+    "make": "AKT",
+    "model": "CR4 125",
+    "cc": 124,
+    "segment": "naked",
+    "oil_interval_km": 3000,
+    "service_interval_days": 90,
+    "expected_cost_cop": 65000
+  },
+  {
+    "make": "AKT",
+    "model": "Dynamic Pro",
+    "cc": 124,
+    "segment": "scooter",
+    "oil_interval_km": 3000,
+    "service_interval_days": 90,
+    "expected_cost_cop": 65000
+  },
+  {
+    "make": "TVS",
+    "model": "Apache RTR 160",
+    "cc": 160,
+    "segment": "naked",
+    "oil_interval_km": 4000,
+    "service_interval_days": 120,
+    "expected_cost_cop": 105000
+  },
+  {
+    "make": "TVS",
+    "model": "Apache RTR 200",
+    "cc": 198,
+    "segment": "naked",
+    "oil_interval_km": 4000,
+    "service_interval_days": 120,
+    "expected_cost_cop": 105000
+  },
+  {
+    "make": "TVS",
+    "model": "Raider 125",
+    "cc": 125,
+    "segment": "urbana",
+    "oil_interval_km": 3000,
+    "service_interval_days": 90,
+    "expected_cost_cop": 65000
+  },
+  {
+    "make": "KTM",
+    "model": "Duke 200",
+    "cc": 199,
+    "segment": "naked",
+    "oil_interval_km": 4000,
+    "service_interval_days": 120,
+    "expected_cost_cop": 105000
+  },
+  {
+    "make": "KTM",
+    "model": "Duke 390",
+    "cc": 373,
+    "segment": "naked",
+    "oil_interval_km": 5000,
+    "service_interval_days": 180,
+    "expected_cost_cop": 180000
+  },
+  {
+    "make": "Royal Enfield",
+    "model": "Himalayan 411",
+    "cc": 411,
+    "segment": "aventura",
+    "oil_interval_km": 5000,
+    "service_interval_days": 180,
+    "expected_cost_cop": 180000
+  },
+  {
+    "make": "Royal Enfield",
+    "model": "Meteor 350",
+    "cc": 349,
+    "segment": "crucero",
+    "oil_interval_km": 5000,
+    "service_interval_days": 180,
+    "expected_cost_cop": 180000
+  },
+  {
+    "make": "Kawasaki",
+    "model": "Z400",
+    "cc": 399,
+    "segment": "naked",
+    "oil_interval_km": 5000,
+    "service_interval_days": 180,
+    "expected_cost_cop": 180000
+  },
+  {
+    "make": "Kawasaki",
+    "model": "Ninja 400",
+    "cc": 399,
+    "segment": "deportiva",
+    "oil_interval_km": 5000,
+    "service_interval_days": 180,
+    "expected_cost_cop": 180000
+  },
+  {
+    "make": "Hero",
+    "model": "Eco Deluxe",
+    "cc": 97,
+    "segment": "urbana",
+    "oil_interval_km": 3000,
+    "service_interval_days": 90,
+    "expected_cost_cop": 65000
+  },
+  {
+    "make": "Hero",
+    "model": "Xpulse 200",
+    "cc": 200,
+    "segment": "doble propósito",
+    "oil_interval_km": 4000,
+    "service_interval_days": 120,
+    "expected_cost_cop": 105000
+  }
+]

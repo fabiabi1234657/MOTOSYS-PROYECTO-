@@ -15,7 +15,8 @@ from redis.asyncio import Redis
 from redis.exceptions import RedisError
 from starlette.responses import JSONResponse
 
-from .auth import authenticate, bearer, vehicle_scope, vehicles_in_scope
+from .auth import authenticate, bearer, scoped_vehicle, vehicle_scope, vehicles_in_scope
+from .catalog import CATALOG
 from .data import ClickHouse, monthly
 from .ml import benchmark, recommend
 
@@ -101,11 +102,24 @@ class MaintenanceCounts(BaseModel):
     unclassified: int
 
 
+class CatalogModel(BaseModel):
+    make: str
+    model: str
+    cc: int
+    segment: str
+    oil_interval_km: int
+    service_interval_days: int
+    expected_cost_cop: int
+
+
 class Recommendation(BaseModel):
     next_maintenance_date: date
     expected_cost_cop: int
     history_events: int
     random_state: int
+    source: Literal["ml_random_forest", "catalog_baseline"]
+    recommended_km_interval: int
+    model_reference: str | None
 
 
 class BenchmarkResult(BaseModel):
@@ -116,6 +130,11 @@ class BenchmarkResult(BaseModel):
     parallel_ms: float
     speedup: float
     matching_predictions: bool
+
+
+@app.get("/analytics/catalog", response_model=list[CatalogModel])
+async def catalog(account: Account):
+    return CATALOG
 
 
 @app.get("/analytics/motorcycles/{motorcycle_id}/tco", response_model=TcoResult)
@@ -157,16 +176,17 @@ async def maintenance(request: Request, motorcycle_id: UUID, account: Account):
 @app.get("/analytics/motorcycles/{motorcycle_id}/recommendation", response_model=Recommendation)
 async def recommendation(request: Request, motorcycle_id: UUID, account: Account):
     state = request.app.state
-    vehicle = await vehicle_scope(state.pg, account, motorcycle_id)
+    vehicle = await scoped_vehicle(state.pg, account, motorcycle_id)
     rows = await state.olap.query(
         """SELECT toString(occurred_at) AS date, amount_cop FROM motosys.fact_vehicle_events FINAL
         WHERE motorcycle_id={id:UUID} AND kind='MAINTENANCE'
-        ORDER BY occurred_at DESC,event_id DESC LIMIT 256""", id=vehicle,
+        ORDER BY occurred_at DESC,event_id DESC LIMIT 256""", id=str(motorcycle_id),
     )
-    result = await run_ml(state, recommend, rows[::-1])
-    if result is None:
-        raise HTTPException(422, "Se requieren al menos seis mantenimientos.")
-    return result
+    history = rows[::-1]
+    profile = dict(vehicle)
+    if len(history) < 6:
+        return recommend(history, profile)
+    return await run_ml(state, recommend, history, profile)
 
 
 class BenchmarkRequest(BaseModel):

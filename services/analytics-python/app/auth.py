@@ -51,12 +51,18 @@ def allowed(account, motorcycle):
     )
 
 
-async def vehicle_scope(pg, account, motorcycle_id):
-    row = await pg.fetchrow("SELECT owner_id,workshop_id FROM motorcycles WHERE id=$1", motorcycle_id)
+async def scoped_vehicle(pg, account, motorcycle_id):
+    row = await pg.fetchrow(
+        "SELECT owner_id,workshop_id,make,model,odometer_km FROM motorcycles WHERE id=$1", motorcycle_id)
     if not row:
         raise HTTPException(404, "Motocicleta no encontrada.")
     if not allowed(account, row):
         raise HTTPException(403, "Motocicleta fuera de tu ámbito.")
+    return row
+
+
+async def vehicle_scope(pg, account, motorcycle_id):
+    await scoped_vehicle(pg, account, motorcycle_id)
     return str(motorcycle_id)
 
 
