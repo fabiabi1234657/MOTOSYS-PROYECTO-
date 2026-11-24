@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { AccessibilityInfo, Alert, Animated, BackHandler, Easing, Image, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import * as SecureStore from 'expo-secure-store';
@@ -28,6 +28,51 @@ const access: Record<Mode, string> = {
   reset: 'Cambiar contraseña', oidc: 'Completar acceso federado',
 };
 const prefs = 'motosys.origin';
+const sections: Record<string, { label: string; icon: string }> = {
+  vehicles: { label: 'Garaje', icon: '⌂' },
+  documents: { label: 'Alertas', icon: '◇' },
+  analytics: { label: 'Datos', icon: '▥' },
+  workshop: { label: 'Taller', icon: '⚙' },
+  admin: { label: 'Admin', icon: '◈' },
+  account: { label: 'Cuenta', icon: '○' },
+};
+
+function ScreenTransition({ children }: Readonly<{ children: React.ReactNode }>) {
+  const progress = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    let mounted = true;
+    void AccessibilityInfo.isReduceMotionEnabled().then(reduced => {
+      if (!mounted || reduced) return;
+      progress.setValue(0);
+      Animated.timing(progress, {
+        toValue: 1, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: true,
+      }).start();
+    }).catch(() => {});
+    return () => {
+      mounted = false;
+      progress.stopAnimation();
+    };
+  }, [progress]);
+  return <Animated.View style={{ gap: 16, opacity: progress, transform: [
+    { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) },
+  ] }}>{children}</Animated.View>;
+}
+
+function Row({ label, detail, selected, onPress }: Readonly<{
+  label: string; detail?: string; selected?: boolean; onPress: () => void;
+}>) {
+  return (
+    <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress}
+      android_ripple={{ color: '#E9DCC1' }}
+      style={({ pressed }) => [s.row, selected && s.selectedRow, pressed && s.pressed]}>
+      <View style={s.rowCopy}>
+        <Text style={s.label}>{label}</Text>
+        {detail && <Text style={s.muted}>{detail}</Text>}
+      </View>
+      <Text accessible={false} style={s.arrow}>{selected ? '✓' : '›'}</Text>
+    </Pressable>
+  );
+}
 
 type ButtonProps = Readonly<{ label: string; onPress: () => void; prominent?: boolean; disabled?: boolean }>;
 function Button({ label, onPress, prominent = false, disabled = false }: ButtonProps) {
@@ -37,7 +82,7 @@ function Button({ label, onPress, prominent = false, disabled = false }: ButtonP
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={[s.button, prominent && s.primary, disabled && s.disabled]}
+      style={({ pressed }) => [s.button, prominent && s.primary, pressed && s.pressed, disabled && s.disabled]}
     >
       <Text style={s.buttonText}>{label}</Text>
     </Pressable>
@@ -125,6 +170,8 @@ export default function App() {
   const [online, setOnline] = useState(true);
   const [screen, setScreen] = useState('vehicles');
   const [choice, setChoice] = useState('');
+  const [showServer, setShowServer] = useState(false);
+  const [showTotp, setShowTotp] = useState(false);
   const [bikes, setBikes] = useState<Bike[]>([]);
   const [bike, setBike] = useState('');
   const [pending, setPending] = useState<Pending[]>([]);
@@ -308,8 +355,26 @@ export default function App() {
       setPending([]);
       setResult(undefined);
       setMode('login');
+      navigate('vehicles');
     });
   }
+
+  function navigate(next: string, action = '') {
+    setScreen(next);
+    setChoice(action);
+    setResult(undefined);
+    setStatus('');
+  }
+
+  useEffect(() => {
+    if (!session || (!choice && screen === 'vehicles')) return;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (lock.current) return true;
+      navigate(choice ? screen : 'vehicles');
+      return true;
+    });
+    return () => subscription.remove();
+  }, [session, choice, screen]);
 
   if (!fonts && !fontError) {
     return <View style={s.shell}><Text accessibilityLiveRegion="polite">Cargando MotoSys…</Text></View>;
@@ -317,127 +382,201 @@ export default function App() {
 
   if (!session) {
     return (
-      <ScrollView contentContainerStyle={s.shell} keyboardShouldPersistTaps="handled">
-        <View style={s.logoLine}>
-          <Image source={require('./assets/motosys.png')} style={s.logo} />
-          <Text style={s.brand}>MotoSys</Text>
-        </View>
-        <Text style={s.kicker}>TU GARAJE DIGITAL</Text>
-        <Text style={s.title}>{access[mode]}</Text>
-        <Input label="Servidor HTTPS (IP LAN y puerto)" value={originText} onChange={setOriginText} />
-        <Button label="Guardar servidor" onPress={() => void saveOrigin()} disabled={busy} />
-        {mode !== 'reset' && mode !== 'oidc' && (
-          <Input label="Correo electrónico" value={auth.email ?? ''} onChange={email => setAuth({ ...auth, email })} />
-        )}
-        {mode === 'reset' && (
-          <Input label="Token del enlace de recuperación" value={auth.token ?? ''} onChange={token => setAuth({ ...auth, token })} />
-        )}
-        {mode !== 'recover' && mode !== 'oidc' && (
-          <Input label="Contraseña" value={auth.password ?? ''} onChange={password => setAuth({ ...auth, password })} secret />
-        )}
-        {(mode === 'login' || (mode === 'oidc' && grant?.requiresMfa)) && (
-          <Input label="Código TOTP" value={auth.totp ?? ''} onChange={totp => setAuth({ ...auth, totp })} numeric />
-        )}
-        <Button label={busy ? 'Procesando…' : access[mode]} prominent disabled={busy} onPress={() => void authenticate()} />
-        {mode === 'login' && (
-          <View style={s.wrap}>
-            {['Google', 'Microsoft', 'Dev'].map(provider => (
-              <Button key={provider} label={provider} disabled={busy} onPress={() => void startFederated(provider.toLowerCase())} />
-            ))}
+      <KeyboardAvoidingView style={s.app} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={s.shell} keyboardShouldPersistTaps="handled">
+          <View style={s.logoLine}>
+            <Image source={require('./assets/motosys.png')} style={s.logo} />
+            <Text style={s.brand}>MotoSys</Text>
           </View>
-        )}
-        {(['login', 'register', 'recover', 'reset'] as Mode[])
-          .filter(item => item !== mode)
-          .map(item => (
-            <Button key={item} label={access[item]} onPress={() => { setMode(item); setStatus(''); }} />
-          ))}
-        <Text accessibilityLiveRegion="polite" style={s.label}>{status}</Text>
-      </ScrollView>
+          <Text accessibilityRole="header" style={s.title}>{access[mode]}</Text>
+          {(!base || showServer) && (
+            <View style={s.card}>
+              <Input label="Servidor HTTPS" value={originText} onChange={setOriginText} />
+              <Button label="Guardar servidor" onPress={() => void saveOrigin()} disabled={busy} />
+            </View>
+          )}
+          {mode !== 'reset' && mode !== 'oidc' && (
+            <Input label="Correo electrónico" value={auth.email ?? ''} onChange={email => setAuth({ ...auth, email })} />
+          )}
+          {mode === 'reset' && (
+            <Input label="Token del enlace de recuperación" value={auth.token ?? ''} onChange={token => setAuth({ ...auth, token })} />
+          )}
+          {mode !== 'recover' && mode !== 'oidc' && (
+            <Input label="Contraseña" value={auth.password ?? ''} onChange={password => setAuth({ ...auth, password })} secret />
+          )}
+          {mode === 'login' && !showTotp && <Row label="Usar código de verificación" onPress={() => setShowTotp(true)} />}
+          {((mode === 'login' && showTotp) || (mode === 'oidc' && grant?.requiresMfa)) && (
+            <Input label="Código TOTP" value={auth.totp ?? ''} onChange={totp => setAuth({ ...auth, totp })} numeric />
+          )}
+          <Button label={busy ? 'Procesando…' : access[mode]} prominent disabled={busy} onPress={() => void authenticate()} />
+          {mode === 'login' && (
+            <View style={s.wrap}>
+              {['Google', 'Microsoft', 'Dev'].map(provider => (
+                <Button key={provider} label={provider} disabled={busy} onPress={() => void startFederated(provider.toLowerCase())} />
+              ))}
+            </View>
+          )}
+          {(['login', 'register', 'recover', 'reset'] as Mode[])
+            .filter(item => item !== mode)
+            .map(item => (
+              <Row key={item} label={access[item]} onPress={() => { setMode(item); setStatus(''); }} />
+            ))}
+          {base && <Row label={showServer ? 'Ocultar servidor' : 'Configurar servidor'} onPress={() => setShowServer(!showServer)} />}
+          {!!status && <Text accessibilityLiveRegion="polite" style={s.feedback}>{status}</Text>}
+        </ScrollView>
+      </KeyboardAvoidingView>
     );
   }
 
   const panels = accountPanels(session.account);
-  const panel = panels.find(x => x.id === screen) ?? panels[0];
-  const action = panel.actions.find(x => x.id === choice) ?? panel.actions[0];
+  const panel = panels.find(item => item.id === screen) ?? panels[0];
+  const action = panel.actions.find(item => item.id === choice);
+  const activeBike = bikes.find(item => item.id === bike);
+  const needsBike = action?.fields?.some(field => field.name === 'motorcycleId');
+  const garageShortcut = panel.actions.find(item => item.id === (activeBike ? 'event' : 'create'));
 
   return (
-    <ScrollView contentContainerStyle={s.shell} keyboardShouldPersistTaps="handled">
-      <View style={s.hero}>
+    <KeyboardAvoidingView style={s.app} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <StatusBar barStyle="dark-content" />
+      <View style={s.header}>
         <View style={s.logoLine}>
-          <Image source={require('./assets/motosys.png')} style={s.logo} />
-          <Text style={s.heroBrand}>MotoSys</Text>
+          <Image source={require('./assets/motosys.png')} style={s.mark} />
+          <Text style={s.brand}>MotoSys</Text>
         </View>
-        <Text style={s.heroRole}>{roles[session.account.role]}</Text>
+        <Text accessibilityLiveRegion="polite" style={[s.connection, !online && s.offline]}>
+          {online ? 'En línea' : 'Sin conexión'}{pending.length ? ' · ' + pending.length : ''}
+        </Text>
       </View>
-      <Text style={s.kicker}>{online ? 'EN LÍNEA' : 'SIN CONEXIÓN'} · {pending.length} PENDIENTES</Text>
-      {pending.filter(row => row.issue).map(row => (
-        <Text style={s.error} key={row.key}>{row.issue} · Registro retenido</Text>
-      ))}
-      <View style={s.wrap}>
-        {panels.map(item => (
-          <Button key={item.id} label={item.label} prominent={item.id === panel.id} onPress={() => { setScreen(item.id); setChoice(''); setResult(undefined); }} />
+      <ScrollView key={screen + ':' + choice} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+        <ScreenTransition>
+          {screen === 'account' ? (
+            <>
+              <Text style={s.title} accessibilityRole="header">Mi cuenta</Text>
+              <View style={s.card}>
+                <Text style={s.subtitle}>{roles[session.account.role]}</Text>
+                <Text style={s.muted}>{pending.length} registros pendientes de sincronización</Text>
+                {pending.filter(row => row.issue).map(row => (
+                  <Text style={s.error} key={row.key}>{row.issue} · Registro retenido</Text>
+                ))}
+                <Button label="Cerrar sesión" disabled={busy} onPress={() => void handleLogout()} />
+              </View>
+            </>
+          ) : action ? (
+            <>
+              <Row label={'Volver a ' + sections[panel.id].label} onPress={() => { if (!lock.current) navigate(panel.id); }} />
+              <Text style={s.title} accessibilityRole="header">{action.label}</Text>
+              {needsBike && bikes.length > 0 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
+                  {bikes.map(item => <Row key={item.id} label={item.plate} selected={bike === item.id}
+                    onPress={() => { if (!lock.current) { setBike(item.id); setResult(undefined); setStatus(''); } }} />)}
+                </ScrollView>
+              )}
+              <View style={s.card}>
+                <Operation
+                  key={action.id + ':' + bike}
+                  action={action}
+                  defaults={{ motorcycleId: bike, workshopId: session.account.workshopId ?? '', occurredAt: new Date().toISOString().slice(0, 10) }}
+                  busy={busy}
+                  onRun={(path, body) => guarded(async () => {
+                    if (action.event && body) {
+                      const entry = { key: Crypto.randomUUID(), path, body };
+                      await enqueue(async () => {
+                        const saved = JSON.parse((await AsyncStorage.getItem(queueKey)) ?? '[]') as Pending[];
+                        const next = [...saved, entry];
+                        await AsyncStorage.setItem(queueKey, JSON.stringify(next));
+                        setPending(next);
+                        const remaining = online
+                          ? await replay(next, api, async rows => {
+                            await AsyncStorage.setItem(queueKey, JSON.stringify(rows));
+                            setPending(rows);
+                          })
+                          : next;
+                        setStatus(remaining.some(item => item.key === entry.key) ? 'Registro pendiente de sincronización.' : 'Registro sincronizado.');
+                      });
+                      return;
+                    }
+                    if (!online) throw new Error('Esta operación requiere conexión.');
+                    if (action.binary) {
+                      const file = await FileSystem.downloadAsync(base + path, (FileSystem.cacheDirectory ?? '') + action.binary, {
+                        headers: { Authorization: 'Bearer ' + session.token },
+                      });
+                      if (file.status !== 200) throw new Error('No se pudo descargar el archivo (' + file.status + ').');
+                      await Sharing.shareAsync(file.uri);
+                    } else {
+                      setResult(await api(path, action.method, body));
+                    }
+                    if (['create', 'edit', 'delete', 'odo'].includes(action.id)) await refreshBikes();
+                    setStatus('Operación completada.');
+                  })}
+                />
+              </View>
+              {result !== undefined && <Result value={result} />}
+            </>
+          ) : (
+            <>
+              <Text style={s.title} accessibilityRole="header">{panel.id === 'vehicles' ? 'Mi garaje' : panel.label}</Text>
+              {panel.id === 'vehicles' && (
+                <View style={s.garage}>
+                  <Text style={s.garageCaption}>MOTOCICLETA ACTIVA</Text>
+                  <Text style={s.garagePlate}>{activeBike?.plate ?? 'Sin motocicletas'}</Text>
+                  {activeBike && <Text style={s.garageCaption}>{activeBike.make}</Text>}
+                  {garageShortcut && (
+                    <Button label={activeBike ? 'Registrar actividad' : garageShortcut.label}
+                      prominent onPress={() => navigate(panel.id, garageShortcut.id)} />
+                  )}
+                </View>
+              )}
+              {panel.id === 'vehicles' && bikes.length > 1 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
+                  {bikes.map(item => <Row key={item.id} label={item.plate} detail={item.make} selected={bike === item.id}
+                    onPress={() => setBike(item.id)} />)}
+                </ScrollView>
+              )}
+              <View style={s.actionList}>
+                {panel.actions.map(item => <Row key={item.id} label={item.label} onPress={() => navigate(panel.id, item.id)} />)}
+              </View>
+            </>
+          )}
+          {!!status && <Text style={s.feedback} accessibilityLiveRegion="polite">{status}</Text>}
+        </ScreenTransition>
+      </ScrollView>
+      <View style={s.tabBar} accessibilityRole="tablist">
+        {[...panels.map(item => item.id), 'account'].map(id => (
+          <Pressable key={id} accessibilityRole="tab" accessibilityState={{ selected: screen === id, disabled: busy }}
+            disabled={busy} onPress={() => navigate(id)} style={({ pressed }) => [s.tab, pressed && s.pressed]}>
+            <View style={[s.tabIcon, screen === id && s.activeTab]}>
+              <Text accessible={false} style={s.icon}>{sections[id].icon}</Text>
+            </View>
+            <Text style={[s.tabLabel, screen === id && s.activeTabLabel]}>{sections[id].label}</Text>
+          </Pressable>
         ))}
       </View>
-      <Text style={s.title}>{panel.label}</Text>
-      <Text style={s.label}>Motocicleta activa</Text>
-      <View style={s.wrap}>
-        {bikes.map(item => (
-          <Button key={item.id} label={item.plate + ' · ' + item.make} prominent={item.id === bike} onPress={() => { setBike(item.id); setResult(undefined); }} />
-        ))}
-      </View>
-      {bikes.length === 0 && <Text style={s.label}>Sin motocicletas disponibles.</Text>}
-      <View style={s.wrap}>
-        {panel.actions.map(item => (
-          <Button key={item.id} label={item.label} prominent={item.id === action.id} onPress={() => { setChoice(item.id); setResult(undefined); }} />
-        ))}
-      </View>
-      <View style={s.card}>
-        <Text style={s.subtitle}>{action.label}</Text>
-        <Operation
-          key={action.id + ':' + bike}
-          action={action}
-          defaults={{ motorcycleId: bike, workshopId: session.account.workshopId ?? '', occurredAt: new Date().toISOString().slice(0, 10) }}
-          busy={busy}
-          onRun={(path, body) => guarded(async () => {
-            if (action.event && body) {
-              const entry = { key: Crypto.randomUUID(), path, body };
-              await enqueue(async () => {
-                const saved = JSON.parse((await AsyncStorage.getItem(queueKey)) ?? '[]') as Pending[];
-                const next = [...saved, entry];
-                await AsyncStorage.setItem(queueKey, JSON.stringify(next));
-                setPending(next);
-                const remaining = online
-                  ? await replay(next, api, async rows => {
-                    await AsyncStorage.setItem(queueKey, JSON.stringify(rows));
-                    setPending(rows);
-                  })
-                  : next;
-                setStatus(remaining.some(item => item.key === entry.key) ? 'Registro pendiente de sincronización.' : 'Registro sincronizado.');
-              });
-              return;
-            }
-            if (!online) throw new Error('Esta operación requiere conexión.');
-            if (action.binary) {
-              const file = await FileSystem.downloadAsync(base + path, (FileSystem.cacheDirectory ?? '') + action.binary, {
-                headers: { Authorization: 'Bearer ' + session.token },
-              });
-              if (file.status !== 200) throw new Error('No se pudo descargar el archivo (' + file.status + ').');
-              await Sharing.shareAsync(file.uri);
-            } else {
-              setResult(await api(path, action.method, body));
-            }
-            if (['create', 'edit', 'delete', 'odo'].includes(action.id)) await refreshBikes();
-            setStatus('Operación completada.');
-          })}
-        />
-        <Text style={s.label} accessibilityLiveRegion="polite">{status}</Text>
-        {result !== undefined && (Array.isArray(result) && !result.length
-          ? <Text style={s.label}>Sin registros.</Text>
-          : <Text selectable style={s.results}>{JSON.stringify(result, null, 2)}</Text>)}
-      </View>
-      <Button label="Cerrar sesión" disabled={busy} onPress={() => void handleLogout()} />
-    </ScrollView>
+    </KeyboardAvoidingView>
   );
+}
+
+const resultLabels: Record<string, string> = {
+  id: 'Identificador', plate: 'Placa', make: 'Marca', model: 'Modelo', year: 'Año',
+  kilometers: 'Kilómetros', category: 'Categoría', amount: 'Importe', kind: 'Tipo',
+  occurred_at: 'Fecha', motorcycle_id: 'Motocicleta', title: 'Título', message: 'Mensaje',
+};
+
+function Result({ value }: Readonly<{ value: unknown }>) {
+  if (Array.isArray(value)) {
+    if (!value.length) return <Text style={s.feedback}>Sin registros.</Text>;
+    return <View style={s.form}>{value.map((item, i) => (
+      <View key={i} style={s.card}><Result value={item} /></View>
+    ))}</View>;
+  }
+  if (value && typeof value === 'object') {
+    return <View style={s.form}>{Object.entries(value).map(([key, item]) => (
+      <View key={key} style={s.resultField}>
+        <Text style={s.muted}>{resultLabels[key] ?? key.replaceAll('_', ' ').replace(/([a-z])([A-Z])/g, '$1 $2')}</Text>
+        <Result value={item} />
+      </View>
+    ))}</View>;
+  }
+  return <Text selectable style={s.resultValue}>{value == null ? '—' : typeof value === 'boolean' ? (value ? 'Sí' : 'No') : String(value)}</Text>;
 }
 
 function renderOperationField(
@@ -534,12 +673,35 @@ function Operation({ action, defaults, busy, onRun }: OperationProps) {
 }
 
 const s = StyleSheet.create({
-  shell: { paddingHorizontal: 18, paddingTop: 48, paddingBottom: 40, backgroundColor: white, gap: 14, flexGrow: 1 },
-  hero: { backgroundColor: ink, padding: 18, borderRadius: 14, gap: 4 },
-  heroBrand: { color: amber, fontSize: 27, fontFamily: 'Inter_700Bold' },
-  heroRole: { color: white, fontSize: 14 },
+  app: { flex: 1, backgroundColor: '#F7F5EF', paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 54 },
+  shell: { padding: 24, gap: 14, flexGrow: 1 },
+  header: { minHeight: 64, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  content: { padding: 20, paddingBottom: 32 },
+  mark: { width: 32, height: 32, borderRadius: 9 },
+  connection: { color: '#215447', backgroundColor: '#DEEBE4', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, fontSize: 12 },
+  offline: { color: '#74410C', backgroundColor: '#FBE8C7' },
+  garage: { backgroundColor: ink, borderRadius: 24, padding: 22, gap: 12 },
+  garageCaption: { color: '#CCDAEC', fontFamily: 'Inter_400Regular', fontSize: 13 },
+  garagePlate: { color: white, fontFamily: 'Inter_700Bold', fontSize: 32 },
+  row: { minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, backgroundColor: '#FFF' },
+  rowCopy: { flexShrink: 1 },
+  selectedRow: { backgroundColor: '#F9E6BD' },
+  arrow: { color: '#805312', fontSize: 21 },
+  actionList: { gap: 6 },
+  chips: { gap: 8 },
+  muted: { color: '#4B5563', fontFamily: 'Inter_400Regular', fontSize: 13 },
+  pressed: { opacity: 0.72 },
+  feedback: { padding: 12, borderRadius: 12, color: ink, backgroundColor: '#EBE8DE' },
+  tabBar: { backgroundColor: '#FFF', borderTopWidth: 1, borderColor: '#E5E1D7', flexDirection: 'row', paddingTop: 7, paddingBottom: Platform.OS === 'android' ? 28 : 30, paddingHorizontal: 6 },
+  tab: { flex: 1, alignItems: 'center', minHeight: 50, gap: 3 },
+  tabIcon: { minWidth: 38, height: 29, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  activeTab: { backgroundColor: '#F9E6BD' },
+  icon: { color: ink, fontSize: 19, lineHeight: 23 },
+  tabLabel: { color: '#4B5563', fontSize: 11 },
+  activeTabLabel: { color: ink, fontFamily: 'Inter_700Bold' },
+  resultField: { gap: 3 },
+  resultValue: { color: ink, fontFamily: 'Inter_400Regular', fontSize: 15 },
   brand: { color: ink, fontSize: 28, fontFamily: 'Inter_700Bold' },
-  kicker: { color: '#475569', fontFamily: 'JetBrainsMono_400Regular', fontSize: 12, letterSpacing: 1.4 },
   title: { color: ink, fontSize: 30, fontFamily: 'Inter_700Bold' },
   subtitle: { color: ink, fontSize: 21, fontFamily: 'Inter_700Bold' },
   label: { color: ink, fontFamily: 'Inter_700Bold', marginBottom: 4 },
@@ -555,5 +717,4 @@ const s = StyleSheet.create({
   logo: { width: 40, height: 40 },
   invalid: { borderColor: '#a31528' },
   error: { color: '#a31528' },
-  results: { fontFamily: 'JetBrainsMono_400Regular', color: ink },
 });
