@@ -173,6 +173,46 @@
         }
       }
     },
+    "/auth/session": {
+      "get": {
+        "summary": "Consultar sesión actual",
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "webSession": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "description": "Datos inválidos"
+          },
+          "401": {
+            "description": "Sesión inválida"
+          },
+          "403": {
+            "description": "Acceso denegado"
+          },
+          "404": {
+            "description": "No encontrado"
+          },
+          "409": {
+            "description": "Conflicto de unicidad o estado"
+          },
+          "429": {
+            "description": "Límite de solicitudes"
+          },
+          "503": {
+            "description": "Servicio indisponible"
+          }
+        }
+      }
+    },
     "/auth/logout": {
       "post": {
         "summary": "Revocar sesión",
@@ -238,6 +278,24 @@
                 "microsoft",
                 "dev"
               ]
+            }
+          },
+          {
+            "name": "ui",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          },
+          {
+            "name": "challenge",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
             }
           }
         ],
@@ -308,6 +366,9 @@
           "200": {
             "description": "Operación exitosa"
           },
+          "302": {
+            "description": "Retorno al cliente Web o Android"
+          },
           "400": {
             "description": "Datos inválidos"
           },
@@ -328,6 +389,72 @@
           },
           "503": {
             "description": "Servicio indisponible"
+          }
+        }
+      }
+    },
+    "/auth/oidc/mobile/exchange": {
+      "post": {
+        "summary": "Intercambiar credencial OIDC de un solo uso",
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "description": "Datos inválidos"
+          },
+          "401": {
+            "description": "Sesión inválida"
+          },
+          "403": {
+            "description": "Acceso denegado"
+          },
+          "404": {
+            "description": "No encontrado"
+          },
+          "409": {
+            "description": "Conflicto de unicidad o estado"
+          },
+          "429": {
+            "description": "Límite de solicitudes"
+          },
+          "503": {
+            "description": "Servicio indisponible"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "ticket": {
+                    "type": "string",
+                    "minLength": 43,
+                    "maxLength": 43
+                  },
+                  "verifier": {
+                    "type": "string",
+                    "minLength": 64,
+                    "maxLength": 64
+                  },
+                  "code": {
+                    "type": "string",
+                    "minLength": 6,
+                    "maxLength": 6
+                  }
+                },
+                "required": [
+                  "ticket",
+                  "verifier"
+                ],
+                "additionalProperties": false
+              }
+            }
           }
         }
       }

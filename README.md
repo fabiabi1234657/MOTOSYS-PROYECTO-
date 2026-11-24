@@ -69,3 +69,19 @@ Consulta [la verificación de datos y núcleo HTTP](docs/fases-1b-2.md) para el 
 Consulta [el cierre del núcleo y el servicio Java](docs/fases-2b-3.md) para las fases 2B y 3.
 
 [Arranque HTTPS, analítica, respaldo y carga](docs/fases-4-5.md) para las fases 4 y 5.
+
+## Inicio rápido con Web y HTTPS
+
+Configura `infra/.env` a partir de `infra/.env.example` y completa los secretos y las URL de los motores. Desde la raíz ejecuta:
+
+```powershell
+./infra/scripts/init-network.ps1
+./infra/scripts/init-tls.ps1
+docker compose --env-file infra/.env -f infra/compose.datos.yml up -d --wait
+docker compose --env-file infra/.env -f infra/compose.datos.yml exec -T cassandra cqlsh -f /opt/motosys/schema.cql
+Get-Content -Raw infra/init/core-auth.sql | docker compose --env-file infra/.env -f infra/compose.datos.yml exec -T postgres psql -U motosys -d motosys -v ON_ERROR_STOP=1
+docker compose --env-file infra/.env -f infra/compose.apps.yml --profile notifications up -d --build --wait
+python infra/scripts/seed-all.py --admin-email tu-correo@example.com
+```
+
+Abre `https://localhost:8443` después de confiar en el certificado de esa instancia. La [guía de la Fase 6](docs/fase-6.md) cubre el APK, la conexión LAN, los flujos por rol y la revisión de entrega. El [informe](docs/informe-proyecto.md) enlaza la evidencia del proyecto.

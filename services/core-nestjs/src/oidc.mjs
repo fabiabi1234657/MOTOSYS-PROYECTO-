@@ -25,7 +25,7 @@ async function provider(name) {
 
 export function oidcHandlers({ redis, db, failure, cookie, matched, createSession, verifyMfa, randomToken, sha }) {
   return {
-    async start(name, res) {
+    async start(name, res, ui = false, mobileChallenge = undefined) {
       const client = await provider(name);
       if (!client) throw failure(404, 'Proveedor OIDC no disponible.');
       const state = oidc.randomState();
@@ -33,7 +33,7 @@ export function oidcHandlers({ redis, db, failure, cookie, matched, createSessio
       const verifier = oidc.randomPKCECodeVerifier();
       const browser = randomToken();
       await redis.set('oidc:request:' + sha(state), JSON.stringify({
-        name, verifier, nonce, browser,
+        name, verifier, nonce, browser, ui, mobileChallenge,
       }), { EX: 300 });
       res.cookie('__Host-motosys-oidc', browser, {
         secure: true, httpOnly: true, sameSite: 'lax', path: '/', maxAge: 300000,
@@ -76,13 +76,42 @@ export function oidcHandlers({ redis, db, failure, cookie, matched, createSessio
          WHERE i.issuer=$1 AND i.subject=$2`, [claims.iss, claims.sub],
       );
       if (!row) throw failure(403, 'La identidad federada no está vinculada a una cuenta.');
-      if (row.role === 'RIDER' && !row.totp_secret) return createSession(row, 'web', res, false);
+      if (request.mobileChallenge) {
+        const ticket = randomToken();
+        await redis.set('oidc:mobile:' + sha(ticket), JSON.stringify({
+          userId: row.id, version: row.session_version, challenge: request.mobileChallenge,
+        }), { EX: 180 });
+        const requiresMfa = row.role !== 'RIDER' || Boolean(row.totp_secret);
+        res.redirect('motosys://oidc?ticket=' + ticket + (requiresMfa ? '&mfa=1' : ''));
+        return;
+      }
+      if (row.role === 'RIDER' && !row.totp_secret) {
+        const session = await createSession(row, 'web', res, false);
+        if (request.ui) { res.redirect('/'); return; }
+        return session;
+      }
       const challenge = randomToken();
       await redis.set('oidc:mfa:' + sha(challenge), row.id, { EX: 180 });
       res.cookie('__Host-motosys-oidc-mfa', challenge, {
         secure: true, httpOnly: true, sameSite: 'strict', path: '/', maxAge: 180000,
       });
+      if (request.ui) { res.redirect('/?oidc=mfa'); return; }
       return { mfaRequired: true };
+    },
+
+    async exchangeMobile(ticket, verifier, code, res) {
+      const key = 'oidc:mobile:' + sha(ticket);
+      const grant = JSON.parse(await redis.get(key) ?? 'null');
+      if (!grant || grant.challenge !== sha(verifier)) throw failure(401, 'Solicitud OIDC móvil inválida o caducada.');
+      const { rows: [row] } = await db.query(
+        'SELECT id, role, workshop_id, totp_secret, session_version FROM users WHERE id=$1', [grant.userId],
+      );
+      if (!row || row.session_version !== grant.version || !await redis.getDel(key)) {
+        throw failure(401, 'Solicitud OIDC móvil inválida o caducada.');
+      }
+      const mfa = row.role !== 'RIDER' || Boolean(row.totp_secret);
+      if (mfa) await verifyMfa(row, code);
+      return createSession(row, 'mobile', res, mfa);
     },
 
     async complete(req, res, code) {

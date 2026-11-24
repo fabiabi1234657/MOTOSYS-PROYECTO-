@@ -2,6 +2,7 @@ package co.motosys.notify;
 
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn;
 import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
@@ -16,9 +17,11 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 @SpringBootApplication
 @EnableScheduling
 @OpenAPIDefinition(info = @Info(title = "MotoSys Notify", version = "1.0.0"),
-        security = @SecurityRequirement(name = "session"))
+        security = {@SecurityRequirement(name = "session"), @SecurityRequirement(name = "webSession")})
 @SecurityScheme(name = "session", type = SecuritySchemeType.HTTP, scheme = "bearer",
         description = "Sesión opaca de MotoSys")
+@SecurityScheme(name = "webSession", type = SecuritySchemeType.APIKEY, in = SecuritySchemeIn.COOKIE,
+        paramName = "__Host-motosys", description = "Sesión Web. Envía X-CSRF-Token para mutaciones.")
 @SecurityScheme(name = "serviceToken", type = SecuritySchemeType.HTTP, scheme = "bearer",
         description = "Credencial interna de entrega")
 public class NotifyApplication {

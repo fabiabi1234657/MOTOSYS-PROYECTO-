@@ -1,0 +1,6 @@
+flowchart LR
+  R["Motociclista"] --> M["MotoSys · gestión vehicular"]
+  W["Administrador de taller"] --> M
+  S["Superadministrador"] --> M
+  M --> O["Proveedores OIDC configurados"]
+  M --> E["Servidor SMTP configurado"]
